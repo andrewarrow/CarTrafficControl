@@ -24,6 +24,11 @@ struct MainView: View {
             
             // Voice recording controls
             controlsView
+            
+            // Developer testing controls (hidden in production)
+            #if DEBUG
+            developerControls
+            #endif
         }
         .padding()
         .onAppear {
@@ -70,7 +75,42 @@ struct MainView: View {
         .cornerRadius(10)
     }
     
-    private var controlsView: some View {
+    // Developer controls for testing
+private var developerControls: some View {
+    VStack {
+        Divider()
+            .padding(.vertical)
+        
+        Text("Developer Options")
+            .font(.caption)
+            .foregroundColor(.gray)
+        
+        Toggle("Direct Voice Test Mode", isOn: Binding(
+            get: { UserDefaults.standard.bool(forKey: "DEBUG_DIRECT_VOICE") },
+            set: { newValue in
+                UserDefaults.standard.set(newValue, forKey: "DEBUG_DIRECT_VOICE")
+                if let speechService = speechService as? SpeechService {
+                    speechService.setDirectVoiceTestingMode(enabled: newValue)
+                }
+            }
+        ))
+        .font(.caption)
+        .padding(.horizontal)
+        
+        Button("Test Voice") {
+            if let callSign = towerController.userVehicle?.callSign {
+                speechService.speak("This is a test of the voice engine without radio effects", withCallSign: callSign)
+            }
+        }
+        .font(.caption)
+        .padding(.top, 4)
+    }
+    .padding()
+    .background(Color.gray.opacity(0.1))
+    .cornerRadius(10)
+}
+
+private var controlsView: some View {
         VStack(spacing: 16) {
             HStack {
                 Text(speechService.isListening ? "Listening..." : "Press to Speak")

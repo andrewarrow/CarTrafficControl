@@ -10,48 +10,490 @@ class SpeechService: NSObject, ObservableObject, SFSpeechRecognizerDelegate, AVS
     private let speechRecognizer = SFSpeechRecognizer(locale: Locale(identifier: "en-US"))
     private var recognitionRequest: SFSpeechAudioBufferRecognitionRequest?
     private var recognitionTask: SFSpeechRecognitionTask?
+    
+    // Audio processing
     private let audioEngine = AVAudioEngine()
+    private var audioPlayerNode = AVAudioPlayerNode()
+    private var mixerNode = AVAudioMixerNode()
+    private var staticPlayer: AVAudioPlayer?
+    
+    // Speech recognition engine (separate from audio effects)
+    private let speechRecognitionEngine = AVAudioEngine()
+    
+    // Communication settings
+    private var currentMessage: String = ""
+    private var wordSegments: [String] = []
+    private var currentSegmentIndex = 0
+    private var wordTimer: Timer?
+    
+    // Pre-recorded radio click sounds
+    private let clickInURL = Bundle.main.url(forResource: "radio_click_in", withExtension: "mp3")
+    private let clickOutURL = Bundle.main.url(forResource: "radio_click_out", withExtension: "mp3")
+    private let staticURL = Bundle.main.url(forResource: "radio_static", withExtension: "mp3")
+    private var clickInPlayer: AVAudioPlayer?
+    private var clickOutPlayer: AVAudioPlayer?
     
     @Published var isListening = false
     @Published var recognizedText = ""
     @Published var speechAuthorizationStatus: SFSpeechRecognizerAuthorizationStatus = .notDetermined
     @Published var isSpeaking = false
     
+    // MARK: - Initialization
     override init() {
         super.init()
         speechRecognizer?.delegate = self
         synthesizer.delegate = self
-    }
-    
-    // MARK: - Text to Speech
-    
-    func speak(_ text: String, withCallSign callSign: String) {
-        // Stop any ongoing speech
-        if synthesizer.isSpeaking {
-            synthesizer.stopSpeaking(at: .immediate)
+        
+        // Critical: Configure quality settings for speech synthesizer
+        let audioSession = AVAudioSession.sharedInstance()
+        do {
+            // Use playback mode with high quality audio
+            try audioSession.setCategory(.playback, mode: .spokenAudio, options: [.duckOthers])
+            try audioSession.setActive(true)
+        } catch {
+            print("Could not configure audio session: \(error)")
         }
         
-        // Create utterance with ATC-style voice
-        let utterance = AVSpeechUtterance(string: text)
-        utterance.voice = AVSpeechSynthesisVoice(language: "en-US")
-        utterance.rate = 0.5 // Slightly slower speech rate
-        utterance.pitchMultiplier = 1.0 // Normal pitch
-        utterance.volume = 0.9 // Slightly lower volume
+        // Set direct voice testing mode for debugging
+        // IMPORTANT: Change this to true to test voice directly without effects
+        setDirectVoiceTestingMode(enabled: false)
         
-        // Apply audio processing for radio effect
-        // This is a simple approach - in a real app you'd use AVAudioEngine for better effects
-        let audioSession = AVAudioSession.sharedInstance()
-        try? audioSession.setCategory(.playback, mode: .spokenAudio, options: .duckOthers)
+        // Ensure we can use high-quality voices
+        loadHighQualityVoices()
+        setupRadioAudioEngine()
+        prepareRadioSoundEffects()
+    }
+    
+    // Helper to set direct voice testing mode
+    func setDirectVoiceTestingMode(enabled: Bool) {
+        UserDefaults.standard.set(enabled, forKey: "DEBUG_DIRECT_VOICE")
+        print("🔊 Direct voice testing mode: \(enabled ? "ENABLED" : "DISABLED") 🔊")
+    }
+    
+    private func loadHighQualityVoices() {
+        // List available voices to debug console
+        print("Available voices on this device:")
+        let allVoices = AVSpeechSynthesisVoice.speechVoices()
+        
+        for voice in allVoices {
+            print("Voice: \(voice.name) (\(voice.language)), ID: \(voice.identifier), Quality: \(voice.quality.rawValue)")
+        }
+        
+        // Look for premium voices
+        let premiumVoices = allVoices.filter { $0.quality.rawValue >= 10 }
+        print("Number of premium voices: \(premiumVoices.count)")
+        
+        // Preload voices for better performance
+        if let bestVoice = premiumVoices.first(where: { $0.language.starts(with: "en") }) {
+            let warmupUtterance = AVSpeechUtterance(string: "Initializing")
+            warmupUtterance.voice = bestVoice
+            warmupUtterance.volume = 0  // Silent initialization
+            synthesizer.speak(warmupUtterance)
+        }
+    }
+    
+    // MARK: - Radio Effect Setup
+    
+    private func setupRadioAudioEngine() {
+        // Create a more sophisticated audio chain for radio effects
+        let mainMixer = audioEngine.mainMixerNode
+        let format = mainMixer.outputFormat(forBus: 0)
+        
+        // Configure effect nodes
+        let distortionEffect = AVAudioUnitDistortion()
+        let eqEffect = AVAudioUnitEQ(numberOfBands: 3)
+        let reverbEffect = AVAudioUnitReverb()
+        
+        // Attach nodes to engine
+        audioEngine.attach(audioPlayerNode)
+        audioEngine.attach(distortionEffect)
+        audioEngine.attach(eqEffect)
+        audioEngine.attach(reverbEffect)
+        audioEngine.attach(mixerNode)
+        
+        // Connect nodes
+        audioEngine.connect(audioPlayerNode, to: distortionEffect, format: format)
+        audioEngine.connect(distortionEffect, to: eqEffect, format: format)
+        audioEngine.connect(eqEffect, to: reverbEffect, format: format)
+        audioEngine.connect(reverbEffect, to: mixerNode, format: format)
+        audioEngine.connect(mixerNode, to: mainMixer, format: format)
+        
+        // Configure effects for radio sound
+        
+        // Distortion - mild amp/tube simulation
+        distortionEffect.loadFactoryPreset(.speechRadioTower)
+        distortionEffect.wetDryMix = 40
+        
+        // EQ - radio frequency response 
+        if let bands = eqEffect.bands as? [AVAudioUnitEQFilterParameters] {
+            if bands.count >= 3 {
+                // Cut low frequencies (below 300Hz)
+                bands[0].filterType = .highPass
+                bands[0].frequency = 300
+                bands[0].bypass = false
+                
+                // Boost midrange for voice clarity (1kHz-3kHz)
+                bands[1].filterType = .parametric
+                bands[1].frequency = 2000
+                bands[1].bandwidth = 1.0
+                bands[1].gain = 6.0
+                bands[1].bypass = false
+                
+                // Cut high frequencies (above 3.5kHz)
+                bands[2].filterType = .lowPass
+                bands[2].frequency = 3500
+                bands[2].bypass = false
+            }
+        }
+        
+        // Very light reverb for spatial effect (simulates radio environment)
+        reverbEffect.loadFactoryPreset(.smallRoom)
+        reverbEffect.wetDryMix = 10
+        
+        // Set mixer levels
+        mixerNode.outputVolume = 1.0
+        
+        // Start engine
+        do {
+            audioEngine.prepare()
+            try audioEngine.start()
+        } catch {
+            print("Could not start audio engine: \(error)")
+        }
+    }
+    
+    private func prepareRadioSoundEffects() {
+        // Load radio click and static sounds
+        if let clickInURL = clickInURL {
+            clickInPlayer = try? AVAudioPlayer(contentsOf: clickInURL)
+            clickInPlayer?.prepareToPlay()
+            clickInPlayer?.volume = 0.7
+        }
+        
+        if let clickOutURL = clickOutURL {
+            clickOutPlayer = try? AVAudioPlayer(contentsOf: clickOutURL)
+            clickOutPlayer?.prepareToPlay()
+            clickOutPlayer?.volume = 0.7
+        }
+        
+        if let staticURL = staticURL {
+            staticPlayer = try? AVAudioPlayer(contentsOf: staticURL)
+            staticPlayer?.prepareToPlay()
+            staticPlayer?.volume = 0.2
+        }
+        
+        // Create basic sounds if audio files aren't available
+        if clickInPlayer == nil || clickOutPlayer == nil || staticPlayer == nil {
+            createBasicRadioSounds()
+        }
+    }
+    
+    private func createBasicRadioSounds() {
+        // If we don't have the audio files, create the sounds programmatically
+        // This is a simplified implementation - would be much better with real recordings
+        print("Using programmatically generated radio sounds")
+    }
+    
+    // MARK: - Voice Processing
+    
+    // Regular speak with full effects
+    func speak(_ text: String, withCallSign callSign: String) {
+        // Check for DEBUG_DIRECT_VOICE flag in UserDefaults
+        let useDirectVoice = UserDefaults.standard.bool(forKey: "DEBUG_DIRECT_VOICE")
+        
+        if useDirectVoice {
+            // Use simplified voice testing mode
+            speakDirectTest(text, withCallSign: callSign)
+        } else {
+            // Use full processing
+            speakWithFullProcessing(text, withCallSign: callSign)
+        }
+    }
+    
+    // Simplified direct speech testing function
+    private func speakDirectTest(_ text: String, withCallSign callSign: String) {
+        print("🔊 DIRECT VOICE TEST MODE 🔊")
+        
+        // Stop any ongoing speech
+        if isSpeaking {
+            stopSpeaking()
+        }
+        
+        // Configure audio session for best quality
+        configureAudioForHighQualitySpeech()
         
         isSpeaking = true
+        
+        // Simple formatting
+        let messageText = "\(callSign), \(text). Over."
+        print("Speaking: \(messageText)")
+        
+        // Create utterance with full detailed logging
+        let utterance = createRadioUtterance(for: messageText)
+        
+        // Speak directly without chunking or effects
         synthesizer.speak(utterance)
+    }
+    
+    // Full processing with all effects
+    private func speakWithFullProcessing(_ text: String, withCallSign callSign: String) {
+        // Stop any ongoing speech
+        if isSpeaking {
+            stopSpeaking()
+        }
+        
+        // Ensure high-quality audio output settings
+        configureAudioForHighQualitySpeech()
+        
+        isSpeaking = true
+        
+        // Add classic radio transmission opening click/static
+        playRadioOpeningSound()
+        
+        // Pre-process text for ATC style speech pattern
+        currentMessage = processATCText(text, callSign: callSign)
+        
+        // Create speech chunks for more natural delivery with "breaks"
+        let chunks = createSpeechChunks(from: currentMessage)
+        
+        // Start speaking with chunks
+        speakWithDelays(chunks: chunks)
+    }
+    
+    private func configureAudioForHighQualitySpeech() {
+        // Configure audio session for highest quality voice synthesis
+        let audioSession = AVAudioSession.sharedInstance()
+        do {
+            // Use playback mode with highest quality settings
+            try audioSession.setCategory(.playback, mode: .spokenAudio, 
+                                        options: [.duckOthers, .allowBluetooth])
+            
+            // Set preferred sample rate and other audio quality parameters
+            try audioSession.setPreferredSampleRate(44100.0)
+            try audioSession.setPreferredIOBufferDuration(0.005)
+            try audioSession.setActive(true, options: .notifyOthersOnDeactivation)
+        } catch {
+            print("Failed to configure audio session: \(error)")
+        }
+    }
+    
+    private func speakWithDelays(chunks: [String]) {
+        var delay = 0.3 // Initial delay for radio click sound
+        let chunksWithPauses = chunks
+        
+        // Schedule each chunk with appropriate delay
+        for (index, chunk) in chunksWithPauses.enumerated() {
+            // Calculate how long this chunk will take to speak (rough estimate)
+            let wordCount = chunk.split(separator: " ").count
+            let chunkDuration = Double(wordCount) * 0.3 // ~0.3 seconds per word
+            
+            // Schedule this chunk to be spoken after the delay
+            DispatchQueue.main.asyncAfter(deadline: .now() + delay) { [weak self] in
+                guard let self = self, self.isSpeaking else { return }
+                
+                // Configure utterance with radio voice characteristics
+                let utterance = self.createRadioUtterance(for: chunk)
+                self.synthesizer.speak(utterance)
+                
+                // For the last chunk, add radio transmission closing click
+                if index == chunksWithPauses.count - 1 {
+                    DispatchQueue.main.asyncAfter(deadline: .now() + chunkDuration + 0.3) { [weak self] in
+                        self?.playRadioClosingSound()
+                    }
+                }
+            }
+            
+            // Increase delay for next chunk (current delay + duration of this chunk + pause)
+            delay += chunkDuration + 0.15 // 0.15s pause between chunks
+        }
+    }
+    
+    private func createRadioUtterance(for text: String) -> AVSpeechUtterance {
+        // Create the utterance
+        let utterance = AVSpeechUtterance(string: text)
+        
+        // Detailed logging of all voices (important for debugging)
+        print("--- ALL AVAILABLE VOICES ---")
+        AVSpeechSynthesisVoice.speechVoices().forEach { voice in
+            print("Voice: \(voice.name), ID: \(voice.identifier), Language: \(voice.language), Quality: \(voice.quality.rawValue)")
+        }
+        print("---------------------------")
+        
+        // Get all available voices for en-US
+        let desiredLanguage = "en-US"
+        let availableVoices = AVSpeechSynthesisVoice.speechVoices()
+            .filter { $0.language == desiredLanguage }
+        
+        print("--- FILTERED en-US VOICES ---")
+        availableVoices.forEach { voice in
+            print("Voice: \(voice.name), ID: \(voice.identifier), Quality: \(voice.quality.rawValue)")
+        }
+        print("---------------------------")
+        
+        // Look specifically for Evan or Nathan enhanced voices first (as seen in voice.png)
+        if let evanVoice = availableVoices.first(where: { 
+            $0.name == "Evan" && $0.quality.rawValue >= 10 
+        }) {
+            utterance.voice = evanVoice
+            print("Using Evan enhanced voice: \(evanVoice.identifier)")
+        }
+        else if let nathanVoice = availableVoices.first(where: { 
+            $0.name == "Nathan" && $0.quality.rawValue >= 10 
+        }) {
+            utterance.voice = nathanVoice
+            print("Using Nathan enhanced voice: \(nathanVoice.identifier)")
+        }
+        // Try any enhanced voice as backup
+        else if let enhancedVoice = availableVoices.first(where: { $0.quality.rawValue >= 10 }) {
+            utterance.voice = enhancedVoice
+            print("Using other enhanced voice: \(enhancedVoice.name), \(enhancedVoice.identifier)")
+        }
+        // Try any male voice
+        else if let maleVoice = availableVoices.first(where: { 
+            ["Alex", "Daniel", "Fred", "Tom"].contains($0.name) 
+        }) {
+            utterance.voice = maleVoice
+            print("Using standard male voice: \(maleVoice.name), \(maleVoice.identifier)")
+        }
+        // Final fallback: Any voice
+        else {
+            utterance.voice = AVSpeechSynthesisVoice(language: desiredLanguage)
+            print("Using default system voice: \(utterance.voice?.name ?? "Unknown")")
+        }
+        
+        // Configure voice characteristics for ATC style - using direct values for testing
+        utterance.rate = 0.5                  // Specific rate (0.0-1.0)
+        utterance.pitchMultiplier = 1.0       // Normal pitch for now
+        utterance.volume = 1.0                // Full volume
+        
+        // Disable assistive technology settings for highest quality
+        if #available(iOS 14.0, *) {
+            utterance.prefersAssistiveTechnologySettings = false
+        }
+        
+        print("*** SELECTED VOICE: \(utterance.voice?.name ?? "Unknown"), ID: \(utterance.voice?.identifier ?? "Unknown") ***")
+        
+        return utterance
+    }
+    
+    private func processATCText(_ text: String, callSign: String) -> String {
+        // Format text in ATC style
+        var processedText = text
+        
+        // Structure with call sign (if not already included)
+        if !processedText.hasPrefix(callSign) {
+            processedText = "\(callSign), \(processedText)"
+        }
+        
+        // End with "Over" if not already included and not ending with callSign
+        if !processedText.lowercased().contains("over.") && !processedText.hasSuffix(callSign) {
+            processedText = "\(processedText). Over."
+        }
+        
+        return processedText
+    }
+    
+    private func createSpeechChunks(from text: String) -> [String] {
+        // Split text into natural chunks based on punctuation and ATC parlance
+        var chunks: [String] = []
+        
+        // First split by obvious break points
+        let sentences = text.components(separatedBy: CharacterSet(charactersIn: ".,:;"))
+        
+        for sentence in sentences {
+            let trimmed = sentence.trimmingCharacters(in: .whitespacesAndNewlines)
+            if !trimmed.isEmpty {
+                chunks.append(trimmed)
+            }
+        }
+        
+        // If we don't have enough natural break points, create them based on length
+        if chunks.count <= 1 && text.count > 30 {
+            chunks = []
+            let words = text.components(separatedBy: " ")
+            var currentChunk = ""
+            
+            for word in words {
+                if currentChunk.count + word.count > 25 {
+                    chunks.append(currentChunk.trimmingCharacters(in: .whitespacesAndNewlines))
+                    currentChunk = word
+                } else {
+                    if !currentChunk.isEmpty {
+                        currentChunk += " "
+                    }
+                    currentChunk += word
+                }
+            }
+            
+            if !currentChunk.isEmpty {
+                chunks.append(currentChunk.trimmingCharacters(in: .whitespacesAndNewlines))
+            }
+        }
+        
+        // If still no chunks, use the whole text
+        if chunks.isEmpty {
+            chunks = [text]
+        }
+        
+        return chunks
+    }
+    
+    // MARK: - Radio Sound Effects
+    
+    private func playRadioOpeningSound() {
+        // Play the characteristic "click" sound of radio transmission starting
+        if let clickPlayer = clickInPlayer, clickPlayer.isPlaying == false {
+            clickPlayer.currentTime = 0
+            clickPlayer.play()
+        } else {
+            // Add a delay to simulate the click sound
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
+                // Just continue with speech
+            }
+        }
+        
+        // Add a bit of static noise
+        addRadioNoise(intensity: 0.15)
+    }
+    
+    private func playRadioClosingSound() {
+        // Play the characteristic "click" sound of radio transmission ending
+        if let clickPlayer = clickOutPlayer, clickPlayer.isPlaying == false {
+            clickPlayer.currentTime = 0
+            clickPlayer.play()
+            
+            // Set speaking to false after the click sound finishes
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) { [weak self] in
+                self?.isSpeaking = false
+            }
+        } else {
+            // Add a delay to simulate the click sound
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) { [weak self] in
+                self?.isSpeaking = false
+            }
+        }
+    }
+    
+    private func addRadioNoise(intensity: Float = 0.1) {
+        // Add sporadic radio noise/static
+        if let staticPlayer = staticPlayer, staticPlayer.isPlaying == false {
+            staticPlayer.currentTime = 0
+            staticPlayer.volume = intensity
+            staticPlayer.play()
+        }
+    }
+    
+    func stopSpeaking() {
+        synthesizer.stopSpeaking(at: .immediate)
+        wordTimer?.invalidate()
+        wordTimer = nil
+        isSpeaking = false
     }
     
     // AVSpeechSynthesizerDelegate method
     func speechSynthesizer(_ synthesizer: AVSpeechSynthesizer, didFinish utterance: AVSpeechUtterance) {
-        DispatchQueue.main.async {
-            self.isSpeaking = false
-        }
+        // Individual utterances are handled by our chunking system, not here
+        // The isSpeaking flag is set to false after the final radio click sound
     }
     
     // MARK: - Speech Recognition
@@ -89,7 +531,7 @@ class SpeechService: NSObject, ObservableObject, SFSpeechRecognizerDelegate, AVS
         }
         
         // Get the input node - no need to unwrap as it's not optional in recent iOS versions
-        let inputNode = audioEngine.inputNode
+        let inputNode = speechRecognitionEngine.inputNode
         
         // Configure request
         recognitionRequest.shouldReportPartialResults = true
@@ -106,7 +548,7 @@ class SpeechService: NSObject, ObservableObject, SFSpeechRecognizerDelegate, AVS
             }
             
             if error != nil || isFinal {
-                self.audioEngine.stop()
+                self.speechRecognitionEngine.stop()
                 inputNode.removeTap(onBus: 0)
                 
                 self.recognitionRequest = nil
@@ -122,16 +564,16 @@ class SpeechService: NSObject, ObservableObject, SFSpeechRecognizerDelegate, AVS
             self.recognitionRequest?.append(buffer)
         }
         
-        // Start audio engine
-        audioEngine.prepare()
-        try? audioEngine.start()
+        // Start speech recognition engine
+        speechRecognitionEngine.prepare()
+        try? speechRecognitionEngine.start()
         
         isListening = true
         recognizedText = ""
     }
     
     func stopListening() {
-        audioEngine.stop()
+        speechRecognitionEngine.stop()
         recognitionRequest?.endAudio()
         isListening = false
     }
