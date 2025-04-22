@@ -333,18 +333,19 @@ class SpeechService: NSObject, ObservableObject, SFSpeechRecognizerDelegate, AVS
             let availableVoices = AVSpeechSynthesisVoice.speechVoices()
                 .filter { $0.language == desiredLanguage }
             
-            // Look specifically for Evan or Nathan enhanced voices first
-            if let evanVoice = availableVoices.first(where: { 
+            // Look specifically for Nathan enhanced voice first (now the default)
+            if let nathanVoice = availableVoices.first(where: { 
+                $0.name == "Nathan" && $0.quality.rawValue >= 10 
+            }) {
+                utterance.voice = nathanVoice
+                print("Using Nathan enhanced voice (default): \(nathanVoice.identifier)")
+            }
+            // Then try Evan enhanced voice
+            else if let evanVoice = availableVoices.first(where: { 
                 $0.name == "Evan" && $0.quality.rawValue >= 10 
             }) {
                 utterance.voice = evanVoice
                 print("Using Evan enhanced voice: \(evanVoice.identifier)")
-            }
-            else if let nathanVoice = availableVoices.first(where: { 
-                $0.name == "Nathan" && $0.quality.rawValue >= 10 
-            }) {
-                utterance.voice = nathanVoice
-                print("Using Nathan enhanced voice: \(nathanVoice.identifier)")
             }
             // Try any enhanced voice as backup
             else if let enhancedVoice = availableVoices.first(where: { $0.quality.rawValue >= 10 }) {

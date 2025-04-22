@@ -3,8 +3,9 @@ import SwiftUI
 struct SetupView: View {
     @EnvironmentObject var towerController: TowerController
     
-    @State private var selectedCarMake: CarMake?
-    @State private var licensePlateDigits = ""
+    // Set Kia as default car make and 2703 as default license plate
+    @State private var selectedCarMake: CarMake? = popularCarMakes.first(where: { $0.name == "Kia" })
+    @State private var licensePlateDigits = "2703"
     
     var onSetupComplete: () -> Void
     
