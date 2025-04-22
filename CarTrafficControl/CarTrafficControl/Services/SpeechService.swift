@@ -29,7 +29,7 @@ class SpeechService: NSObject, ObservableObject, SFSpeechRecognizerDelegate, AVS
     // Pre-recorded radio click sounds
     private let clickInURL = Bundle.main.url(forResource: "radio_click_in", withExtension: "mp3")
     private let clickOutURL = Bundle.main.url(forResource: "radio_click_out", withExtension: "mp3")
-    private let staticURL = Bundle.main.url(forResource: "radio_static", withExtension: "mp3")
+    private let staticURL = Bundle.main.url(forResource: "radio_static", withExtension: "wav")
     private var clickInPlayer: AVAudioPlayer?
     private var clickOutPlayer: AVAudioPlayer?
     
@@ -47,14 +47,21 @@ class SpeechService: NSObject, ObservableObject, SFSpeechRecognizerDelegate, AVS
         speechRecognizer?.delegate = self
         synthesizer.delegate = self
         
+        print("🔊 DEBUG: Initializing SpeechService")
+        
         // Critical: Configure quality settings for speech synthesizer
         let audioSession = AVAudioSession.sharedInstance()
         do {
             // Use playback mode with high quality audio
-            try audioSession.setCategory(.playback, mode: .spokenAudio, options: [.duckOthers])
+            print("🔊 DEBUG: Setting audio session category to playback with mixWithOthers")
+            try audioSession.setCategory(.playback, mode: .spokenAudio, options: [.mixWithOthers, .duckOthers])
             try audioSession.setActive(true)
+            print("🔊 DEBUG: Audio session activated successfully")
+            print("🔊 DEBUG: Current audio session category: \(audioSession.category.rawValue)")
+            print("🔊 DEBUG: Current audio session mode: \(audioSession.mode.rawValue)")
+            print("🔊 DEBUG: Current audio session options: \(audioSession.categoryOptions.rawValue)")
         } catch {
-            print("Could not configure audio session: \(error)")
+            print("🔊 ERROR: Could not configure audio session: \(error)")
         }
         
         // Set direct voice testing mode for debugging
@@ -65,6 +72,16 @@ class SpeechService: NSObject, ObservableObject, SFSpeechRecognizerDelegate, AVS
         loadHighQualityVoices()
         setupRadioAudioEngine()
         prepareRadioSoundEffects()
+        
+        // Verify audio setup is correct
+        print("🔊 DEBUG: SpeechService initialization complete")
+        let currentSession = AVAudioSession.sharedInstance()
+        print("🔊 DEBUG: Final audio session configuration:")
+        print("🔊 DEBUG: - Category: \(currentSession.category.rawValue)")
+        print("🔊 DEBUG: - Mode: \(currentSession.mode.rawValue)")
+        print("🔊 DEBUG: - Options: \(currentSession.categoryOptions.rawValue)")
+        print("🔊 DEBUG: - Sample rate: \(currentSession.sampleRate)")
+        print("🔊 DEBUG: - isOtherAudioPlaying: \(currentSession.isOtherAudioPlaying)")
     }
     
     // Helper to set direct voice testing mode
@@ -167,26 +184,53 @@ class SpeechService: NSObject, ObservableObject, SFSpeechRecognizerDelegate, AVS
     
     private func prepareRadioSoundEffects() {
         // Load radio click and static sounds
+        print("🔊 DEBUG: Preparing radio sound effects")
+        
         if let clickInURL = clickInURL {
-            clickInPlayer = try? AVAudioPlayer(contentsOf: clickInURL)
-            clickInPlayer?.prepareToPlay()
-            clickInPlayer?.volume = 0.7
+            print("🔊 DEBUG: Found click-in URL: \(clickInURL.path)")
+            do {
+                clickInPlayer = try AVAudioPlayer(contentsOf: clickInURL)
+                clickInPlayer?.prepareToPlay()
+                clickInPlayer?.volume = 0.7
+                print("🔊 DEBUG: Click-in player initialized successfully")
+            } catch {
+                print("🔊 ERROR: Failed to create click-in player: \(error)")
+            }
+        } else {
+            print("🔊 ERROR: Click-in URL is nil")
         }
         
         if let clickOutURL = clickOutURL {
-            clickOutPlayer = try? AVAudioPlayer(contentsOf: clickOutURL)
-            clickOutPlayer?.prepareToPlay()
-            clickOutPlayer?.volume = 0.7
+            print("🔊 DEBUG: Found click-out URL: \(clickOutURL.path)")
+            do {
+                clickOutPlayer = try AVAudioPlayer(contentsOf: clickOutURL)
+                clickOutPlayer?.prepareToPlay()
+                clickOutPlayer?.volume = 0.7
+                print("🔊 DEBUG: Click-out player initialized successfully")
+            } catch {
+                print("🔊 ERROR: Failed to create click-out player: \(error)")
+            }
+        } else {
+            print("🔊 ERROR: Click-out URL is nil")
         }
         
         if let staticURL = staticURL {
-            staticPlayer = try? AVAudioPlayer(contentsOf: staticURL)
-            staticPlayer?.prepareToPlay()
-            staticPlayer?.volume = 0.2
+            print("🔊 DEBUG: Found static URL: \(staticURL.path)")
+            do {
+                staticPlayer = try AVAudioPlayer(contentsOf: staticURL)
+                staticPlayer?.prepareToPlay()
+                staticPlayer?.volume = 0.4 // Increased volume
+                print("🔊 DEBUG: Static player initialized successfully")
+            } catch {
+                print("🔊 ERROR: Failed to create static player: \(error)")
+            }
+        } else {
+            print("🔊 ERROR: Static URL is nil")
         }
         
         // Create basic sounds if audio files aren't available
         if clickInPlayer == nil || clickOutPlayer == nil || staticPlayer == nil {
+            print("🔊 DEBUG: Some players are nil, creating basic sounds")
             createBasicRadioSounds()
         }
     }
@@ -267,16 +311,24 @@ class SpeechService: NSObject, ObservableObject, SFSpeechRecognizerDelegate, AVS
         // Configure audio session for highest quality voice synthesis
         let audioSession = AVAudioSession.sharedInstance()
         do {
+            print("🔊 DEBUG: Configuring audio for high quality speech")
             // Use playback mode with highest quality settings
             try audioSession.setCategory(.playback, mode: .spokenAudio, 
-                                        options: [.duckOthers, .allowBluetooth])
+                                        options: [.mixWithOthers, .allowBluetooth, .duckOthers])
             
             // Set preferred sample rate and other audio quality parameters
             try audioSession.setPreferredSampleRate(44100.0)
             try audioSession.setPreferredIOBufferDuration(0.005)
             try audioSession.setActive(true, options: .notifyOthersOnDeactivation)
+            
+            print("🔊 DEBUG: High quality speech audio configured:")
+            print("🔊 DEBUG: - Category: \(audioSession.category.rawValue)")
+            print("🔊 DEBUG: - Mode: \(audioSession.mode.rawValue)")
+            print("🔊 DEBUG: - Options: \(audioSession.categoryOptions.rawValue)")
+            print("🔊 DEBUG: - mixWithOthers enabled: \(audioSession.categoryOptions.contains(.mixWithOthers))")
+            print("🔊 DEBUG: - duckOthers enabled: \(audioSession.categoryOptions.contains(.duckOthers))")
         } catch {
-            print("Failed to configure audio session: \(error)")
+            print("🔊 ERROR: Failed to configure audio session: \(error)")
         }
     }
     
@@ -447,18 +499,35 @@ class SpeechService: NSObject, ObservableObject, SFSpeechRecognizerDelegate, AVS
     
     private func playRadioOpeningSound() {
         // Play the characteristic "click" sound of radio transmission starting
+        print("🔊 DEBUG: Playing radio opening sound")
         if let clickPlayer = clickInPlayer, clickPlayer.isPlaying == false {
+            print("🔊 DEBUG: Click player ready, playing now")
             clickPlayer.currentTime = 0
             clickPlayer.play()
+            print("🔊 DEBUG: Click player started, isPlaying=\(clickPlayer.isPlaying)")
         } else {
+            print("🔊 DEBUG: Click player not available or already playing")
             // Add a delay to simulate the click sound
             DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
-                // Just continue with speech
+                print("🔊 DEBUG: Click delay completed")
             }
         }
         
         // Add a bit of static noise
-        addRadioNoise(intensity: 0.15)
+        print("🔊 DEBUG: About to add radio noise")
+        addRadioNoise(intensity: 0.6) // Increased intensity
+        print("🔊 DEBUG: Radio noise function called")
+        
+        // Ensure the static audio is playing in the background during speech
+        DispatchQueue.main.asyncAfter(deadline: .now() + 1.0) { [weak self] in
+            print("🔊 DEBUG: Checking static player after delay")
+            if let staticPlayer = self?.staticPlayer, !staticPlayer.isPlaying {
+                print("🔊 DEBUG: Static not playing after 1 second, restarting")
+                staticPlayer.play()
+            } else {
+                print("🔊 DEBUG: Static player status after 1 second: \(self?.staticPlayer?.isPlaying ?? false)")
+            }
+        }
     }
     
     private func playRadioClosingSound() {
@@ -481,10 +550,57 @@ class SpeechService: NSObject, ObservableObject, SFSpeechRecognizerDelegate, AVS
     
     private func addRadioNoise(intensity: Float = 0.1) {
         // Add sporadic radio noise/static
-        if let staticPlayer = staticPlayer, staticPlayer.isPlaying == false {
-            staticPlayer.currentTime = 0
-            staticPlayer.volume = intensity
-            staticPlayer.play()
+        print("🔊 DEBUG: Adding radio noise with intensity \(intensity)")
+        
+        // Force recreate the static player each time
+        if let staticURL = self.staticURL {
+            print("🔊 DEBUG: Static URL exists: \(staticURL.path)")
+            
+            // Check if file exists
+            let fileManager = FileManager.default
+            if fileManager.fileExists(atPath: staticURL.path) {
+                print("🔊 DEBUG: Static file exists at path")
+                
+                do {
+                    // Create a new player each time
+                    let newStaticPlayer = try AVAudioPlayer(contentsOf: staticURL)
+                    newStaticPlayer.prepareToPlay()
+                    newStaticPlayer.volume = intensity
+                    newStaticPlayer.numberOfLoops = 3 // Play multiple times
+                    
+                    print("🔊 DEBUG: Created new static player")
+                    
+                    // Stop old player if exists
+                    if let oldPlayer = staticPlayer, oldPlayer.isPlaying {
+                        oldPlayer.stop()
+                        print("🔊 DEBUG: Stopped old static player")
+                    }
+                    
+                    // Replace with new player
+                    staticPlayer = newStaticPlayer
+                    
+                    // Play it
+                    print("🔊 DEBUG: Starting new static player with volume \(intensity)")
+                    newStaticPlayer.play()
+                    
+                    // Check if it's playing
+                    print("🔊 DEBUG: Static player started, isPlaying=\(newStaticPlayer.isPlaying)")
+                    
+                    // Verify audio session
+                    let session = AVAudioSession.sharedInstance()
+                    print("🔊 DEBUG: Current audio session while playing static:")
+                    print("🔊 DEBUG: - Category: \(session.category.rawValue)")
+                    print("🔊 DEBUG: - Options: \(session.categoryOptions.rawValue)")
+                    print("🔊 DEBUG: - mixWithOthers enabled: \(session.categoryOptions.contains(.mixWithOthers))")
+                    
+                } catch {
+                    print("🔊 ERROR: Failed to create static player: \(error)")
+                }
+            } else {
+                print("🔊 ERROR: Static file does NOT exist at path: \(staticURL.path)")
+            }
+        } else {
+            print("🔊 DEBUG: Static URL is nil")
         }
     }
     

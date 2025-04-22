@@ -7,6 +7,9 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
+		00F019092DB7C93F00E42473 /* README.txt in Resources */ = {isa = PBXBuildFile; fileRef = 00F019062DB7C93F00E42473 /* README.txt */; };
+		00F0190A2DB7C93F00E42473 /* radio_static.mp3 in Resources */ = {isa = PBXBuildFile; fileRef = 00F019052DB7C93F00E42473 /* radio_static.mp3 */; };
+		00F0190C2DB7C97900E42473 /* radio_static.wav in Resources */ = {isa = PBXBuildFile; fileRef = 00F0190B2DB7C97900E42473 /* radio_static.wav */; };
 		1A1A1A1A1A1A1A1A1A1A1A1A /* ContentView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2A2A2A2A2A2A2A2A2A2A2A2A /* ContentView.swift */; };
 		1A1A1A1B1A1A1A1B1A1A1A1B /* MainView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2A2A2A2B2A2A2A2B2A2A2A2B /* MainView.swift */; };
 		1A1A1A1C1A1A1A1C1A1A1A1C /* SetupView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2A2A2A2C2A2A2A2C2A2A2A2C /* SetupView.swift */; };
@@ -20,6 +23,9 @@
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
+		00F019052DB7C93F00E42473 /* radio_static.mp3 */ = {isa = PBXFileReference; lastKnownFileType = audio.mp3; path = radio_static.mp3; sourceTree = "<group>"; };
+		00F019062DB7C93F00E42473 /* README.txt */ = {isa = PBXFileReference; lastKnownFileType = text; path = README.txt; sourceTree = "<group>"; };
+		00F0190B2DB7C97900E42473 /* radio_static.wav */ = {isa = PBXFileReference; lastKnownFileType = audio.wav; path = radio_static.wav; sourceTree = "<group>"; };
 		2A2A2A2A2A2A2A2A2A2A2A2A /* ContentView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ContentView.swift; sourceTree = "<group>"; };
 		2A2A2A2B2A2A2A2B2A2A2A2B /* MainView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MainView.swift; sourceTree = "<group>"; };
 		2A2A2A2C2A2A2A2C2A2A2A2C /* SetupView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SetupView.swift; sourceTree = "<group>"; };
@@ -45,6 +51,24 @@
 /* End PBXFrameworksBuildPhase section */
 
 /* Begin PBXGroup section */
+		00F019072DB7C93F00E42473 /* Audio */ = {
+			isa = PBXGroup;
+			children = (
+				00F0190B2DB7C97900E42473 /* radio_static.wav */,
+				00F019052DB7C93F00E42473 /* radio_static.mp3 */,
+				00F019062DB7C93F00E42473 /* README.txt */,
+			);
+			path = Audio;
+			sourceTree = "<group>";
+		};
+		00F019082DB7C93F00E42473 /* Resources */ = {
+			isa = PBXGroup;
+			children = (
+				00F019072DB7C93F00E42473 /* Audio */,
+			);
+			path = Resources;
+			sourceTree = "<group>";
+		};
 		4A4A4A4A4A4A4A4A4A4A4A4A /* Products */ = {
 			isa = PBXGroup;
 			children = (
@@ -56,6 +80,7 @@
 		4B4B4B4B4B4B4B4B4B4B4B4B /* CarTrafficControl */ = {
 			isa = PBXGroup;
 			children = (
+				00F019082DB7C93F00E42473 /* Resources */,
 				4C4C4C4C4C4C4C4C4C4C4C4C /* App */,
 				4D4D4D4D4D4D4D4D4D4D4D4D /* Views */,
 				4E4E4E4E4E4E4E4E4E4E4E4E /* Models */,
@@ -178,6 +203,9 @@
 			buildActionMask = 2147483647;
 			files = (
 				1A1A1A231A1A1A231A1A1A23 /* Preview Assets.xcassets in Resources */,
+				00F019092DB7C93F00E42473 /* README.txt in Resources */,
+				00F0190C2DB7C97900E42473 /* radio_static.wav in Resources */,
+				00F0190A2DB7C93F00E42473 /* radio_static.mp3 in Resources */,
 				1A1A1A221A1A1A221A1A1A22 /* Assets.xcassets in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;

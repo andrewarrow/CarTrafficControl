@@ -48,5 +48,7 @@
     <string>CTC needs microphone access to hear your voice communications.</string>
     <key>NSSpeechRecognitionUsageDescription</key>
     <string>CTC needs speech recognition to understand your voice communications.</string>
+    <key>CFBundleIconName</key>
+    <string>AppIcon</string>
 </dict>
 </plist>
