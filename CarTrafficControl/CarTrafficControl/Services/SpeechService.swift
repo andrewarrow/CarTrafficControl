@@ -33,6 +33,9 @@ class SpeechService: NSObject, ObservableObject, SFSpeechRecognizerDelegate, AVS
     private var clickInPlayer: AVAudioPlayer?
     private var clickOutPlayer: AVAudioPlayer?
     
+    // Sample playback completion handler
+    private var sampleCompletionHandler: (() -> Void)?
+    
     @Published var isListening = false
     @Published var recognizedText = ""
     @Published var speechAuthorizationStatus: SFSpeechRecognizerAuthorizationStatus = .notDetermined
@@ -308,57 +311,58 @@ class SpeechService: NSObject, ObservableObject, SFSpeechRecognizerDelegate, AVS
         }
     }
     
-    private func createRadioUtterance(for text: String) -> AVSpeechUtterance {
+    private func createRadioUtterance(for text: String, preferredVoice: AVSpeechSynthesisVoice? = nil) -> AVSpeechUtterance {
         // Create the utterance
         let utterance = AVSpeechUtterance(string: text)
         
-        // Detailed logging of all voices (important for debugging)
-        print("--- ALL AVAILABLE VOICES ---")
-        AVSpeechSynthesisVoice.speechVoices().forEach { voice in
-            print("Voice: \(voice.name), ID: \(voice.identifier), Language: \(voice.language), Quality: \(voice.quality.rawValue)")
+        // If there's a specific preferred voice, use that
+        if let preferredVoice = preferredVoice {
+            utterance.voice = preferredVoice
+            print("Using specified voice: \(preferredVoice.name), ID: \(preferredVoice.identifier)")
         }
-        print("---------------------------")
-        
-        // Get all available voices for en-US
-        let desiredLanguage = "en-US"
-        let availableVoices = AVSpeechSynthesisVoice.speechVoices()
-            .filter { $0.language == desiredLanguage }
-        
-        print("--- FILTERED en-US VOICES ---")
-        availableVoices.forEach { voice in
-            print("Voice: \(voice.name), ID: \(voice.identifier), Quality: \(voice.quality.rawValue)")
+        // Otherwise check for user-selected voice from UserDefaults
+        else if let selectedVoiceID = UserDefaults.standard.string(forKey: "selectedVoiceIdentifier"),
+                let selectedVoice = AVSpeechSynthesisVoice.speechVoices().first(where: { $0.identifier == selectedVoiceID }) {
+            utterance.voice = selectedVoice
+            print("Using user-selected voice: \(selectedVoice.name), ID: \(selectedVoice.identifier)")
         }
-        print("---------------------------")
-        
-        // Look specifically for Evan or Nathan enhanced voices first (as seen in voice.png)
-        if let evanVoice = availableVoices.first(where: { 
-            $0.name == "Evan" && $0.quality.rawValue >= 10 
-        }) {
-            utterance.voice = evanVoice
-            print("Using Evan enhanced voice: \(evanVoice.identifier)")
-        }
-        else if let nathanVoice = availableVoices.first(where: { 
-            $0.name == "Nathan" && $0.quality.rawValue >= 10 
-        }) {
-            utterance.voice = nathanVoice
-            print("Using Nathan enhanced voice: \(nathanVoice.identifier)")
-        }
-        // Try any enhanced voice as backup
-        else if let enhancedVoice = availableVoices.first(where: { $0.quality.rawValue >= 10 }) {
-            utterance.voice = enhancedVoice
-            print("Using other enhanced voice: \(enhancedVoice.name), \(enhancedVoice.identifier)")
-        }
-        // Try any male voice
-        else if let maleVoice = availableVoices.first(where: { 
-            ["Alex", "Daniel", "Fred", "Tom"].contains($0.name) 
-        }) {
-            utterance.voice = maleVoice
-            print("Using standard male voice: \(maleVoice.name), \(maleVoice.identifier)")
-        }
-        // Final fallback: Any voice
+        // Otherwise use the original voice selection logic
         else {
-            utterance.voice = AVSpeechSynthesisVoice(language: desiredLanguage)
-            print("Using default system voice: \(utterance.voice?.name ?? "Unknown")")
+            // Get all available voices for en-US
+            let desiredLanguage = "en-US"
+            let availableVoices = AVSpeechSynthesisVoice.speechVoices()
+                .filter { $0.language == desiredLanguage }
+            
+            // Look specifically for Evan or Nathan enhanced voices first
+            if let evanVoice = availableVoices.first(where: { 
+                $0.name == "Evan" && $0.quality.rawValue >= 10 
+            }) {
+                utterance.voice = evanVoice
+                print("Using Evan enhanced voice: \(evanVoice.identifier)")
+            }
+            else if let nathanVoice = availableVoices.first(where: { 
+                $0.name == "Nathan" && $0.quality.rawValue >= 10 
+            }) {
+                utterance.voice = nathanVoice
+                print("Using Nathan enhanced voice: \(nathanVoice.identifier)")
+            }
+            // Try any enhanced voice as backup
+            else if let enhancedVoice = availableVoices.first(where: { $0.quality.rawValue >= 10 }) {
+                utterance.voice = enhancedVoice
+                print("Using other enhanced voice: \(enhancedVoice.name), \(enhancedVoice.identifier)")
+            }
+            // Try any male voice
+            else if let maleVoice = availableVoices.first(where: { 
+                ["Alex", "Daniel", "Fred", "Tom"].contains($0.name) 
+            }) {
+                utterance.voice = maleVoice
+                print("Using standard male voice: \(maleVoice.name), \(maleVoice.identifier)")
+            }
+            // Final fallback: Any voice
+            else {
+                utterance.voice = AVSpeechSynthesisVoice(language: desiredLanguage)
+                print("Using default system voice: \(utterance.voice?.name ?? "Unknown")")
+            }
         }
         
         // Configure voice characteristics for ATC style - using direct values for testing
@@ -490,8 +494,38 @@ class SpeechService: NSObject, ObservableObject, SFSpeechRecognizerDelegate, AVS
         isSpeaking = false
     }
     
+    // MARK: - Voice Sample Preview
+    
+    func speakSample(_ text: String, voice: AVSpeechSynthesisVoice, completion: @escaping () -> Void) {
+        // Store completion handler
+        sampleCompletionHandler = completion
+        
+        // Configure audio for high quality
+        configureAudioForHighQualitySpeech()
+        
+        // Create utterance with the specified voice
+        let utterance = AVSpeechUtterance(string: text)
+        utterance.voice = voice
+        utterance.rate = 0.5
+        utterance.pitchMultiplier = 1.0
+        utterance.volume = 1.0
+        
+        if #available(iOS 14.0, *) {
+            utterance.prefersAssistiveTechnologySettings = false
+        }
+        
+        // Speak the sample
+        synthesizer.speak(utterance)
+    }
+    
     // AVSpeechSynthesizerDelegate method
     func speechSynthesizer(_ synthesizer: AVSpeechSynthesizer, didFinish utterance: AVSpeechUtterance) {
+        // Call the completion handler if this was a sample playback
+        if let completionHandler = sampleCompletionHandler {
+            completionHandler()
+            sampleCompletionHandler = nil
+        }
+        
         // Individual utterances are handled by our chunking system, not here
         // The isSpeaking flag is set to false after the final radio click sound
     }
