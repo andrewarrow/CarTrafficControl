@@ -26,10 +26,47 @@ class SpeechService: NSObject, ObservableObject, SFSpeechRecognizerDelegate, AVS
     private var currentSegmentIndex = 0
     private var wordTimer: Timer?
     
-    // Pre-recorded radio click sounds
-    private let clickInURL = Bundle.main.url(forResource: "radio_click_in", withExtension: "mp3")
-    private let clickOutURL = Bundle.main.url(forResource: "radio_click_out", withExtension: "mp3")
-    private let staticURL = Bundle.main.url(forResource: "radio_static", withExtension: "wav")
+    // Pre-recorded radio click sounds - search in various paths
+    private var clickInURL: URL? {
+        // Try different possible paths for the click-in sound
+        let paths = [
+            Bundle.main.url(forResource: "radio_click_in", withExtension: "mp3"),
+            Bundle.main.url(forResource: "radio_click_in", withExtension: "mp3", subdirectory: "Audio"),
+            Bundle.main.url(forResource: "radio_click_in", withExtension: "mp3", subdirectory: "Resources/Audio")
+        ]
+        return paths.compactMap { $0 }.first
+    }
+    
+    private var clickOutURL: URL? {
+        // Try different possible paths for the click-out sound
+        let paths = [
+            Bundle.main.url(forResource: "radio_click_out", withExtension: "mp3"),
+            Bundle.main.url(forResource: "radio_click_out", withExtension: "mp3", subdirectory: "Audio"),
+            Bundle.main.url(forResource: "radio_click_out", withExtension: "mp3", subdirectory: "Resources/Audio")
+        ]
+        return paths.compactMap { $0 }.first
+    }
+    
+    private var staticURL: URL? {
+        // Try different possible paths for the static sound
+        let paths = [
+            Bundle.main.url(forResource: "radio_static", withExtension: "wav"),
+            Bundle.main.url(forResource: "radio_static", withExtension: "wav", subdirectory: "Audio"),
+            Bundle.main.url(forResource: "radio_static", withExtension: "wav", subdirectory: "Resources/Audio"),
+            // Try mp3 as fallback
+            Bundle.main.url(forResource: "radio_static", withExtension: "mp3"),
+            Bundle.main.url(forResource: "radio_static", withExtension: "mp3", subdirectory: "Audio"),
+            Bundle.main.url(forResource: "radio_static", withExtension: "mp3", subdirectory: "Resources/Audio")
+        ]
+        
+        let foundURLs = paths.compactMap { $0 }
+        if let firstURL = foundURLs.first {
+            print("🔊 DEBUG: Found static audio at: \(firstURL)")
+            return firstURL
+        }
+        print("🔊 ERROR: Could not find static audio at any expected location")
+        return nil
+    }
     private var clickInPlayer: AVAudioPlayer?
     private var clickOutPlayer: AVAudioPlayer?
     
@@ -54,7 +91,7 @@ class SpeechService: NSObject, ObservableObject, SFSpeechRecognizerDelegate, AVS
         do {
             // Use playback mode with high quality audio
             print("🔊 DEBUG: Setting audio session category to playback with mixWithOthers")
-            try audioSession.setCategory(.playback, mode: .spokenAudio, options: [.mixWithOthers, .duckOthers])
+            try audioSession.setCategory(.playback, mode: .spokenAudio, options: [.mixWithOthers, .duckOthers, .allowBluetooth, .allowBluetoothA2DP])
             try audioSession.setActive(true)
             print("🔊 DEBUG: Audio session activated successfully")
             print("🔊 DEBUG: Current audio session category: \(audioSession.category.rawValue)")
@@ -186,6 +223,36 @@ class SpeechService: NSObject, ObservableObject, SFSpeechRecognizerDelegate, AVS
         // Load radio click and static sounds
         print("🔊 DEBUG: Preparing radio sound effects")
         
+        // Print bundle paths for debugging
+        print("🔊 DEBUG: Bundle path: \(Bundle.main.bundlePath)")
+        print("🔊 DEBUG: Resource paths: \(Bundle.main.resourcePath ?? "none")")
+        
+        // List all files in Resources directory for debugging
+        if let resourcePath = Bundle.main.resourcePath {
+            let fileManager = FileManager.default
+            print("🔊 DEBUG: Listing files in resource directory:")
+            do {
+                let items = try fileManager.contentsOfDirectory(atPath: resourcePath)
+                for item in items {
+                    print("🔊 DEBUG: Found: \(item)")
+                }
+                
+                // Also check Resources/Audio if it exists
+                let audioPath = resourcePath + "/Resources/Audio"
+                if fileManager.fileExists(atPath: audioPath) {
+                    print("🔊 DEBUG: Listing files in audio directory:")
+                    let audioItems = try fileManager.contentsOfDirectory(atPath: audioPath)
+                    for item in audioItems {
+                        print("🔊 DEBUG: Found audio file: \(item)")
+                    }
+                } else {
+                    print("🔊 DEBUG: Audio directory not found at: \(audioPath)")
+                }
+            } catch {
+                print("🔊 ERROR: Could not list files: \(error)")
+            }
+        }
+        
         if let clickInURL = clickInURL {
             print("🔊 DEBUG: Found click-in URL: \(clickInURL.path)")
             do {
@@ -219,13 +286,40 @@ class SpeechService: NSObject, ObservableObject, SFSpeechRecognizerDelegate, AVS
             do {
                 staticPlayer = try AVAudioPlayer(contentsOf: staticURL)
                 staticPlayer?.prepareToPlay()
-                staticPlayer?.volume = 0.4 // Increased volume
+                staticPlayer?.volume = 0.8 // Further increased volume
+                staticPlayer?.numberOfLoops = 5 // More loops
                 print("🔊 DEBUG: Static player initialized successfully")
+                print("🔊 DEBUG: Static player duration: \(staticPlayer?.duration ?? 0) seconds")
             } catch {
                 print("🔊 ERROR: Failed to create static player: \(error)")
             }
         } else {
-            print("🔊 ERROR: Static URL is nil")
+            // Try direct path as last resort
+            print("🔊 DEBUG: Static URL is nil, trying direct paths")
+            let directPaths = [
+                "/Users/aa/os/ctc/CarTrafficControl/CarTrafficControl/Resources/Audio/radio_static.wav",
+                "/Users/aa/os/ctc/CarTrafficControl/CarTrafficControl/Resources/Audio/radio_static.mp3"
+            ]
+            
+            for path in directPaths {
+                let url = URL(fileURLWithPath: path)
+                let fileManager = FileManager.default
+                if fileManager.fileExists(atPath: path) {
+                    print("🔊 DEBUG: Found static file at direct path: \(path)")
+                    do {
+                        staticPlayer = try AVAudioPlayer(contentsOf: url)
+                        staticPlayer?.prepareToPlay()
+                        staticPlayer?.volume = 0.8
+                        staticPlayer?.numberOfLoops = 5
+                        print("🔊 DEBUG: Static player initialized from direct path")
+                        break
+                    } catch {
+                        print("🔊 ERROR: Failed to create static player from direct path: \(error)")
+                    }
+                } else {
+                    print("🔊 DEBUG: File does not exist at direct path: \(path)")
+                }
+            }
         }
         
         // Create basic sounds if audio files aren't available
@@ -314,7 +408,7 @@ class SpeechService: NSObject, ObservableObject, SFSpeechRecognizerDelegate, AVS
             print("🔊 DEBUG: Configuring audio for high quality speech")
             // Use playback mode with highest quality settings
             try audioSession.setCategory(.playback, mode: .spokenAudio, 
-                                        options: [.mixWithOthers, .allowBluetooth, .duckOthers])
+                                        options: [.mixWithOthers, .allowBluetooth, .allowBluetoothA2DP, .duckOthers])
             
             // Set preferred sample rate and other audio quality parameters
             try audioSession.setPreferredSampleRate(44100.0)
@@ -385,36 +479,60 @@ class SpeechService: NSObject, ObservableObject, SFSpeechRecognizerDelegate, AVS
             let availableVoices = AVSpeechSynthesisVoice.speechVoices()
                 .filter { $0.language == desiredLanguage }
             
+            print("🔊 DEBUG: Searching for enhanced voices...")
+            
             // Look specifically for Nathan enhanced voice first (now the default)
             if let nathanVoice = availableVoices.first(where: { 
-                $0.name == "Nathan" && $0.quality.rawValue >= 10 
+                $0.name.contains("Nathan") && $0.identifier.contains("enhanced")
             }) {
                 utterance.voice = nathanVoice
-                print("Using Nathan enhanced voice (default): \(nathanVoice.identifier)")
+                print("🔊 DEBUG: Using Nathan enhanced voice: \(nathanVoice.identifier)")
+            }
+            // Then try any enhanced voice with "Nathan" in the name
+            else if let nathanVoice = availableVoices.first(where: { 
+                $0.name.contains("Nathan")
+            }) {
+                utterance.voice = nathanVoice
+                print("🔊 DEBUG: Using Nathan voice: \(nathanVoice.identifier)")
             }
             // Then try Evan enhanced voice
             else if let evanVoice = availableVoices.first(where: { 
-                $0.name == "Evan" && $0.quality.rawValue >= 10 
+                $0.name.contains("Evan") && $0.identifier.contains("enhanced")
             }) {
                 utterance.voice = evanVoice
-                print("Using Evan enhanced voice: \(evanVoice.identifier)")
+                print("🔊 DEBUG: Using Evan enhanced voice: \(evanVoice.identifier)")
             }
             // Try any enhanced voice as backup
-            else if let enhancedVoice = availableVoices.first(where: { $0.quality.rawValue >= 10 }) {
+            else if let enhancedVoice = availableVoices.first(where: { 
+                $0.identifier.contains("enhanced") || $0.quality.rawValue >= 10 
+            }) {
                 utterance.voice = enhancedVoice
-                print("Using other enhanced voice: \(enhancedVoice.name), \(enhancedVoice.identifier)")
+                print("🔊 DEBUG: Using enhanced voice: \(enhancedVoice.name), \(enhancedVoice.identifier)")
+            }
+            // Try Tom Enhanced specifically
+            else if let tomVoice = availableVoices.first(where: { 
+                $0.name.contains("Tom") && ($0.identifier.contains("enhanced") || $0.quality.rawValue >= 10)
+            }) {
+                utterance.voice = tomVoice
+                print("🔊 DEBUG: Using Tom enhanced voice: \(tomVoice.identifier)")
             }
             // Try any male voice
             else if let maleVoice = availableVoices.first(where: { 
-                ["Alex", "Daniel", "Fred", "Tom"].contains($0.name) 
+                ["Alex", "Daniel", "Fred", "Tom", "Aaron"].contains($0.name) 
             }) {
                 utterance.voice = maleVoice
-                print("Using standard male voice: \(maleVoice.name), \(maleVoice.identifier)")
+                print("🔊 DEBUG: Using standard male voice: \(maleVoice.name), \(maleVoice.identifier)")
             }
             // Final fallback: Any voice
             else {
                 utterance.voice = AVSpeechSynthesisVoice(language: desiredLanguage)
-                print("Using default system voice: \(utterance.voice?.name ?? "Unknown")")
+                print("🔊 DEBUG: Using default system voice: \(utterance.voice?.name ?? "Unknown")")
+            }
+            
+            // Debug list of available enhanced voices
+            print("🔊 DEBUG: Available enhanced voices:")
+            for voice in availableVoices.filter({ $0.identifier.contains("enhanced") || $0.quality.rawValue > 1 }) {
+                print("🔊 DEBUG: - \(voice.name) (\(voice.identifier)), Quality: \(voice.quality.rawValue)")
             }
         }
         

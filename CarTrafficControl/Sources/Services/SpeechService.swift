@@ -40,7 +40,7 @@ class SpeechService: NSObject, ObservableObject, SFSpeechRecognizerDelegate {
         // Apply audio processing for radio effect
         // This is a simple approach - in a real app you'd use AVAudioEngine for better effects
         let audioSession = AVAudioSession.sharedInstance()
-        try? audioSession.setCategory(.playback, mode: .spokenAudio, options: .duckOthers)
+        try? audioSession.setCategory(.playback, mode: .spokenAudio, options: [.duckOthers, .allowBluetooth, .allowBluetoothA2DP])
         
         isSpeaking = true
         synthesizer.speak(utterance)
@@ -80,7 +80,7 @@ class SpeechService: NSObject, ObservableObject, SFSpeechRecognizerDelegate {
         
         // Configure audio session
         let audioSession = AVAudioSession.sharedInstance()
-        try? audioSession.setCategory(.record, mode: .measurement, options: .duckOthers)
+        try? audioSession.setCategory(.record, mode: .measurement, options: [.duckOthers, .allowBluetooth, .allowBluetoothA2DP])
         try? audioSession.setActive(true, options: .notifyOthersOnDeactivation)
         
         recognitionRequest = SFSpeechAudioBufferRecognitionRequest()
