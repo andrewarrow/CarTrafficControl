@@ -608,15 +608,18 @@ class SpeechService: NSObject, ObservableObject, SFSpeechRecognizerDelegate, AVS
     
     // MARK: - Voice Sample Preview
     
-    func speakSample(_ text: String, voice: AVSpeechSynthesisVoice, completion: @escaping () -> Void) {
+    func speakSample(_ voice: AVSpeechSynthesisVoice, completion: @escaping () -> Void) {
         // Store completion handler
         sampleCompletionHandler = completion
         
         // Configure audio for high quality
         configureAudioForHighQualitySpeech()
         
+        // Create a 10-second sample text
+        let sampleText = "This is a 10-second voice sample for the \(voice.name) voice. This voice will be used for all tower communications if selected. The sample continues to demonstrate how the voice sounds for a full 10 seconds so you can properly evaluate it."
+        
         // Create utterance with the specified voice
-        let utterance = AVSpeechUtterance(string: text)
+        let utterance = AVSpeechUtterance(string: sampleText)
         utterance.voice = voice
         utterance.rate = 0.5
         utterance.pitchMultiplier = 1.0

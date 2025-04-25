@@ -14,9 +14,9 @@ struct VoiceSettingsView: View {
     var body: some View {
         NavigationView {
             Form {
-                Section(header: Text("Voice Settings")) {
+                Section(header: Text("Available Voices"), footer: Text("Voices currently available on your device are shown.")) {
                     if voiceSettings.availableVoices.isEmpty {
-                        Text("No enhanced voices found")
+                        Text("No available voices found")
                             .foregroundColor(.secondary)
                     } else {
                         List {
@@ -26,30 +26,35 @@ struct VoiceSettingsView: View {
                                         Text(voice.name)
                                             .font(.headline)
                                         
-                                        Text(isEnhanced(voice) ? "Enhanced Voice" : "Standard Voice")
+                                        Text(isEnhanced(voice) ? "Enhanced Quality" : "Standard Quality")
                                             .font(.caption)
                                             .foregroundColor(isEnhanced(voice) ? .blue : .secondary)
                                     }
                                     
                                     Spacer()
                                     
-                                    // Play sample button
+                                    // Play sample button - 10 second sample
                                     Button(action: {
                                         playVoiceSample(voice)
                                     }) {
-                                        Image(systemName: "play.circle")
-                                            .foregroundColor(.blue)
+                                        HStack {
+                                            Image(systemName: "play.circle")
+                                            Text("Play")
+                                        }
+                                        .foregroundColor(.blue)
                                     }
                                     .disabled(isSamplePlaying)
-                                    
-                                    // Selection checkbox
-                                    if voice.identifier == voiceSettings.selectedVoiceIdentifier {
-                                        Image(systemName: "checkmark")
-                                            .foregroundColor(.blue)
-                                    }
+                                    .buttonStyle(BorderlessButtonStyle())
+                                    .padding(6)
+                                    .background(Color.blue.opacity(0.1))
+                                    .cornerRadius(8)
                                 }
                                 .contentShape(Rectangle())
+                                .padding(.vertical, 4)
+                                .background(voice.identifier == voiceSettings.selectedVoiceIdentifier ? Color.blue.opacity(0.1) : Color.clear)
+                                .cornerRadius(8)
                                 .onTapGesture {
+                                    // Select this voice as the tower's voice
                                     voiceSettings.selectedVoiceIdentifier = voice.identifier
                                 }
                             }
@@ -57,14 +62,26 @@ struct VoiceSettingsView: View {
                     }
                 }
                 
-                Section(footer: Text("Changes will take effect immediately.")) {
+                Section(footer: Text("The selected voice will be used for all tower communications.")) {
+                    // Show current selected voice
+                    if let selectedID = voiceSettings.selectedVoiceIdentifier,
+                       let selectedVoice = voiceSettings.getVoiceByIdentifier(selectedID) {
+                        HStack {
+                            Text("Current Tower Voice:")
+                            Spacer()
+                            Text(selectedVoice.name)
+                                .foregroundColor(.blue)
+                                .bold()
+                        }
+                    }
+                    
                     Button("Reset to Default Voice") {
                         voiceSettings.selectedVoiceIdentifier = nil
                     }
                     .foregroundColor(.red)
                 }
             }
-            .navigationTitle("Voice Settings")
+            .navigationTitle("Tower Voice Settings")
             .toolbar {
                 ToolbarItem(placement: .navigationBarTrailing) {
                     Button("Done") {
@@ -85,7 +102,7 @@ struct VoiceSettingsView: View {
     private func playVoiceSample(_ voice: AVSpeechSynthesisVoice) {
         isSamplePlaying = true
         selectedVoiceForTest = voice
-        speechService.speakSample("This is a sample of the \(voice.name) voice.", voice: voice) {
+        speechService.speakSample(voice) {
             isSamplePlaying = false
         }
     }

@@ -28,17 +28,11 @@ class VoiceSettings: ObservableObject {
     }
     
     func refreshAvailableVoices() {
-        // Get all available enhanced voices for English
+        // Get locally available voices for English
+        // Note: speechVoices() returns voices currently available on the device
         availableVoices = AVSpeechSynthesisVoice.speechVoices()
-            .filter { $0.language.starts(with: "en") && $0.quality.rawValue >= 10 }
+            .filter { $0.language.starts(with: "en") }
             .sorted { $0.name < $1.name }
-        
-        // If no enhanced voices found, include standard voices
-        if availableVoices.isEmpty {
-            availableVoices = AVSpeechSynthesisVoice.speechVoices()
-                .filter { $0.language.starts(with: "en") }
-                .sorted { $0.name < $1.name }
-        }
     }
     
     func getVoiceByIdentifier(_ identifier: String) -> AVSpeechSynthesisVoice? {
