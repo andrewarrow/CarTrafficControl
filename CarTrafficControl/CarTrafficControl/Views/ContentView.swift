@@ -28,11 +28,29 @@ class VoiceSettings: ObservableObject {
     }
     
     func refreshAvailableVoices() {
-        // Get locally available voices for English
-        // Note: speechVoices() returns voices currently available on the device
-        availableVoices = AVSpeechSynthesisVoice.speechVoices()
-            .filter { $0.language.starts(with: "en") }
+        // Log all available voices to understand what's available
+        let allVoices = AVSpeechSynthesisVoice.speechVoices()
+        print("All available voices:")
+        for voice in allVoices where voice.language.starts(with: "en") {
+            print("Voice: \(voice.name), ID: \(voice.identifier), Quality: \(voice.quality.rawValue)")
+        }
+        
+        // Filter by:
+        // 1. English language
+        // 2. Must contain "Enhanced" or "Premium" in the name - looking at iOS UI
+        //    we can see these are clearly marked in the official voice name
+        availableVoices = allVoices
+            .filter { voice in 
+                voice.language.starts(with: "en") && 
+                (voice.name.contains("Enhanced") || voice.name.contains("Premium"))
+            }
             .sorted { $0.name < $1.name }
+            
+        // Log the filtered voices
+        print("Filtered Enhanced/Premium voices:")
+        for voice in availableVoices {
+            print("Selected: \(voice.name), ID: \(voice.identifier), Quality: \(voice.quality.rawValue)")
+        }
     }
     
     func getVoiceByIdentifier(_ identifier: String) -> AVSpeechSynthesisVoice? {

@@ -14,9 +14,9 @@ struct VoiceSettingsView: View {
     var body: some View {
         NavigationView {
             Form {
-                Section(header: Text("Available Voices"), footer: Text("Voices currently available on your device are shown.")) {
+                Section(header: Text("Premium & Enhanced Voices"), footer: Text("Only voices marked as Premium or Enhanced are shown.")) {
                     if voiceSettings.availableVoices.isEmpty {
-                        Text("No available voices found")
+                        Text("No premium or enhanced voices found")
                             .foregroundColor(.secondary)
                     } else {
                         List {
@@ -25,10 +25,11 @@ struct VoiceSettingsView: View {
                                     VStack(alignment: .leading) {
                                         Text(voice.name)
                                             .font(.headline)
+                                            .foregroundColor(.blue)
                                         
-                                        Text(isEnhanced(voice) ? "Enhanced Quality" : "Standard Quality")
+                                        Text(isPremiumVoice(voice) ? "Premium Voice" : "Enhanced Voice")
                                             .font(.caption)
-                                            .foregroundColor(isEnhanced(voice) ? .blue : .secondary)
+                                            .foregroundColor(isPremiumVoice(voice) ? .blue : .secondary)
                                     }
                                     
                                     Spacer()
@@ -95,8 +96,10 @@ struct VoiceSettingsView: View {
         }
     }
     
-    private func isEnhanced(_ voice: AVSpeechSynthesisVoice) -> Bool {
-        return voice.quality.rawValue >= 10
+    private func isPremiumVoice(_ voice: AVSpeechSynthesisVoice) -> Bool {
+        // Premium voices have "Premium" in the name
+        return voice.name.contains("Premium")
+        // Enhanced voices will be the default case in the UI
     }
     
     private func playVoiceSample(_ voice: AVSpeechSynthesisVoice) {
