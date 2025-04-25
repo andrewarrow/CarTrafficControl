@@ -15,7 +15,6 @@ class SpeechService: NSObject, ObservableObject, SFSpeechRecognizerDelegate, AVS
     private let audioEngine = AVAudioEngine()
     private var audioPlayerNode = AVAudioPlayerNode()
     private var mixerNode = AVAudioMixerNode()
-    private var staticPlayer: AVAudioPlayer?
     
     // Speech recognition engine (separate from audio effects)
     private let speechRecognitionEngine = AVAudioEngine()
@@ -47,26 +46,7 @@ class SpeechService: NSObject, ObservableObject, SFSpeechRecognizerDelegate, AVS
         return paths.compactMap { $0 }.first
     }
     
-    private var staticURL: URL? {
-        // Try different possible paths for the static sound
-        let paths = [
-            Bundle.main.url(forResource: "radio_static", withExtension: "wav"),
-            Bundle.main.url(forResource: "radio_static", withExtension: "wav", subdirectory: "Audio"),
-            Bundle.main.url(forResource: "radio_static", withExtension: "wav", subdirectory: "Resources/Audio"),
-            // Try mp3 as fallback
-            Bundle.main.url(forResource: "radio_static", withExtension: "mp3"),
-            Bundle.main.url(forResource: "radio_static", withExtension: "mp3", subdirectory: "Audio"),
-            Bundle.main.url(forResource: "radio_static", withExtension: "mp3", subdirectory: "Resources/Audio")
-        ]
-        
-        let foundURLs = paths.compactMap { $0 }
-        if let firstURL = foundURLs.first {
-            print("🔊 DEBUG: Found static audio at: \(firstURL)")
-            return firstURL
-        }
-        print("🔊 ERROR: Could not find static audio at any expected location")
-        return nil
-    }
+    // Static audio has been removed from the project
     private var clickInPlayer: AVAudioPlayer?
     private var clickOutPlayer: AVAudioPlayer?
     
@@ -281,49 +261,10 @@ class SpeechService: NSObject, ObservableObject, SFSpeechRecognizerDelegate, AVS
             print("🔊 ERROR: Click-out URL is nil")
         }
         
-        if let staticURL = staticURL {
-            print("🔊 DEBUG: Found static URL: \(staticURL.path)")
-            do {
-                staticPlayer = try AVAudioPlayer(contentsOf: staticURL)
-                staticPlayer?.prepareToPlay()
-                staticPlayer?.volume = 0.8 // Further increased volume
-                staticPlayer?.numberOfLoops = 5 // More loops
-                print("🔊 DEBUG: Static player initialized successfully")
-                print("🔊 DEBUG: Static player duration: \(staticPlayer?.duration ?? 0) seconds")
-            } catch {
-                print("🔊 ERROR: Failed to create static player: \(error)")
-            }
-        } else {
-            // Try direct path as last resort
-            print("🔊 DEBUG: Static URL is nil, trying direct paths")
-            let directPaths = [
-                "/Users/aa/os/ctc/CarTrafficControl/CarTrafficControl/Resources/Audio/radio_static.wav",
-                "/Users/aa/os/ctc/CarTrafficControl/CarTrafficControl/Resources/Audio/radio_static.mp3"
-            ]
-            
-            for path in directPaths {
-                let url = URL(fileURLWithPath: path)
-                let fileManager = FileManager.default
-                if fileManager.fileExists(atPath: path) {
-                    print("🔊 DEBUG: Found static file at direct path: \(path)")
-                    do {
-                        staticPlayer = try AVAudioPlayer(contentsOf: url)
-                        staticPlayer?.prepareToPlay()
-                        staticPlayer?.volume = 0.8
-                        staticPlayer?.numberOfLoops = 5
-                        print("🔊 DEBUG: Static player initialized from direct path")
-                        break
-                    } catch {
-                        print("🔊 ERROR: Failed to create static player from direct path: \(error)")
-                    }
-                } else {
-                    print("🔊 DEBUG: File does not exist at direct path: \(path)")
-                }
-            }
-        }
+        // Static audio has been removed
         
         // Create basic sounds if audio files aren't available
-        if clickInPlayer == nil || clickOutPlayer == nil || staticPlayer == nil {
+        if clickInPlayer == nil || clickOutPlayer == nil {
             print("🔊 DEBUG: Some players are nil, creating basic sounds")
             createBasicRadioSounds()
         }
@@ -631,21 +572,8 @@ class SpeechService: NSObject, ObservableObject, SFSpeechRecognizerDelegate, AVS
             }
         }
         
-        // Add a bit of static noise
-        print("🔊 DEBUG: About to add radio noise")
-        addRadioNoise(intensity: 0.6) // Increased intensity
-        print("🔊 DEBUG: Radio noise function called")
-        
-        // Ensure the static audio is playing in the background during speech
-        DispatchQueue.main.asyncAfter(deadline: .now() + 1.0) { [weak self] in
-            print("🔊 DEBUG: Checking static player after delay")
-            if let staticPlayer = self?.staticPlayer, !staticPlayer.isPlaying {
-                print("🔊 DEBUG: Static not playing after 1 second, restarting")
-                staticPlayer.play()
-            } else {
-                print("🔊 DEBUG: Static player status after 1 second: \(self?.staticPlayer?.isPlaying ?? false)")
-            }
-        }
+        // Static audio has been removed
+        print("🔊 DEBUG: Static audio removed")
     }
     
     private func playRadioClosingSound() {
@@ -667,59 +595,8 @@ class SpeechService: NSObject, ObservableObject, SFSpeechRecognizerDelegate, AVS
     }
     
     private func addRadioNoise(intensity: Float = 0.1) {
-        // Add sporadic radio noise/static
-        print("🔊 DEBUG: Adding radio noise with intensity \(intensity)")
-        
-        // Force recreate the static player each time
-        if let staticURL = self.staticURL {
-            print("🔊 DEBUG: Static URL exists: \(staticURL.path)")
-            
-            // Check if file exists
-            let fileManager = FileManager.default
-            if fileManager.fileExists(atPath: staticURL.path) {
-                print("🔊 DEBUG: Static file exists at path")
-                
-                do {
-                    // Create a new player each time
-                    let newStaticPlayer = try AVAudioPlayer(contentsOf: staticURL)
-                    newStaticPlayer.prepareToPlay()
-                    newStaticPlayer.volume = intensity
-                    newStaticPlayer.numberOfLoops = 3 // Play multiple times
-                    
-                    print("🔊 DEBUG: Created new static player")
-                    
-                    // Stop old player if exists
-                    if let oldPlayer = staticPlayer, oldPlayer.isPlaying {
-                        oldPlayer.stop()
-                        print("🔊 DEBUG: Stopped old static player")
-                    }
-                    
-                    // Replace with new player
-                    staticPlayer = newStaticPlayer
-                    
-                    // Play it
-                    print("🔊 DEBUG: Starting new static player with volume \(intensity)")
-                    newStaticPlayer.play()
-                    
-                    // Check if it's playing
-                    print("🔊 DEBUG: Static player started, isPlaying=\(newStaticPlayer.isPlaying)")
-                    
-                    // Verify audio session
-                    let session = AVAudioSession.sharedInstance()
-                    print("🔊 DEBUG: Current audio session while playing static:")
-                    print("🔊 DEBUG: - Category: \(session.category.rawValue)")
-                    print("🔊 DEBUG: - Options: \(session.categoryOptions.rawValue)")
-                    print("🔊 DEBUG: - mixWithOthers enabled: \(session.categoryOptions.contains(.mixWithOthers))")
-                    
-                } catch {
-                    print("🔊 ERROR: Failed to create static player: \(error)")
-                }
-            } else {
-                print("🔊 ERROR: Static file does NOT exist at path: \(staticURL.path)")
-            }
-        } else {
-            print("🔊 DEBUG: Static URL is nil")
-        }
+        // Static audio effect has been removed
+        print("🔊 DEBUG: Radio static functionality removed")
     }
     
     func stopSpeaking() {

@@ -44,7 +44,19 @@ class TowerController: ObservableObject {
             let welcomeMessage = "\(callSign), Car Traffic Control tower now tracking your vehicle. Maintain current speed and report at next intersection. Tower out."
             addTowerMessage(welcomeMessage)
             speechService.speak(welcomeMessage, withCallSign: callSign)
+            
+            // Disable location-based messages for the initial period
+            DispatchQueue.main.asyncAfter(deadline: .now() + 30) {
+                self.enableLocationBasedMessages()
+            }
         }
+    }
+    
+    // Temporarily disable location-based messages
+    private var locationBasedMessagesEnabled = false
+    
+    private func enableLocationBasedMessages() {
+        locationBasedMessagesEnabled = true
     }
     
     private func processUserSpeech(_ text: String) {
@@ -85,6 +97,12 @@ class TowerController: ObservableObject {
     }
     
     private func generateLocationBasedMessage(street: String, crossStreet: String, callSign: String) {
+        // Skip if location-based messages are disabled
+        guard locationBasedMessagesEnabled else {
+            print("Location-based messages currently disabled")
+            return
+        }
+        
         // Generate location-specific message
         let scenarios = [
             "\(callSign), we show you approaching \(street) and \(crossStreet). Proceed with caution. Tower out.",
