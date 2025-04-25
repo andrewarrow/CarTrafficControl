@@ -39,17 +39,59 @@ class TowerController: ObservableObject {
     func setUserVehicle(make: CarMake, licensePlateDigits: String) {
         userVehicle = UserVehicle(make: make, licensePlateDigits: licensePlateDigits)
         
-        // Welcome message
+        // Get ready for the welcome message with location
         if let callSign = userVehicle?.callSign {
-            let welcomeMessage = "\(callSign), Car Traffic Control tower now tracking your vehicle. Maintain current speed and report at next intersection. Tower out."
-            addTowerMessage(welcomeMessage)
-            speechService.speak(welcomeMessage, withCallSign: callSign)
+            // Wait briefly to allow location service to get street information
+            DispatchQueue.main.asyncAfter(deadline: .now() + 1.5) {
+                self.sendWelcomeMessage(callSign: callSign)
+            }
             
             // Disable location-based messages for the initial period
             DispatchQueue.main.asyncAfter(deadline: .now() + 30) {
                 self.enableLocationBasedMessages()
             }
         }
+    }
+    
+    private func sendWelcomeMessage(callSign: String) {
+        // Get current street information
+        let street = formatStreetForSpeech(locationService.currentStreet)
+        let crossStreet = formatStreetForSpeech(locationService.currentCrossStreet)
+        
+        // Create personalized welcome message with location
+        let welcomeMessage: String
+        
+        if street != "unknown street" && !crossStreet.isEmpty && 
+           crossStreet != "unknown intersection" && crossStreet != "Intersection" && 
+           crossStreet != "Intersections La" && !crossStreet.contains("& Intersection") {
+            // We have two good street names
+            welcomeMessage = "\(callSign), Car Traffic Control tower now tracking your vehicle at \(street) and \(crossStreet). Maintain current speed and proceed with caution. Tower out."
+        } else if street != "unknown street" {
+            // We have at least the main street
+            welcomeMessage = "\(callSign), Car Traffic Control tower now tracking your vehicle on \(street). Maintain current speed and report at next intersection. Tower out."
+        } else {
+            // Fallback if no location data is available
+            welcomeMessage = "\(callSign), Car Traffic Control tower now tracking your vehicle. Maintain current speed and report at next intersection. Tower out."
+        }
+        
+        // Send and speak the welcome message
+        addTowerMessage(welcomeMessage)
+        speechService.speak(welcomeMessage, withCallSign: callSign)
+    }
+    
+    // Format street names for better speech synthesis
+    private func formatStreetForSpeech(_ street: String) -> String {
+        // Replace "&" with "and" for better pronunciation
+        var formatted = street.replacingOccurrences(of: "&", with: "and")
+        
+        // Other potential speech improvements
+        formatted = formatted.replacingOccurrences(of: "St.", with: "Street")
+        formatted = formatted.replacingOccurrences(of: "Ave.", with: "Avenue")
+        formatted = formatted.replacingOccurrences(of: "Rd.", with: "Road")
+        formatted = formatted.replacingOccurrences(of: "Blvd.", with: "Boulevard")
+        formatted = formatted.replacingOccurrences(of: "Dr.", with: "Drive")
+        
+        return formatted
     }
     
     // Temporarily disable location-based messages
@@ -103,15 +145,40 @@ class TowerController: ObservableObject {
             return
         }
         
-        // Generate location-specific message
-        let scenarios = [
-            "\(callSign), we show you approaching \(street) and \(crossStreet). Proceed with caution. Tower out.",
-            "\(callSign), you are currently on \(street) near \(crossStreet). Be advised of heavy traffic ahead. Tower out.",
-            "\(callSign), traffic control shows you at \(street) and \(crossStreet). Hold at next signal. Tower out.",
-            "\(callSign), radar indicates you're traveling on \(street). Proceed to \(crossStreet) and wait for further instructions. Tower out."
-        ]
+        // Format street names for better speech
+        let formattedStreet = formatStreetForSpeech(street)
+        let formattedCrossStreet = formatStreetForSpeech(crossStreet)
         
-        let message = scenarios.randomElement() ?? "\(callSign), we have you on \(street). Continue as planned. Tower out."
+        // Determine if we have valid cross street data
+        let hasValidCrossStreet = !formattedCrossStreet.isEmpty && 
+                                  formattedCrossStreet != "unknown intersection" && 
+                                  formattedCrossStreet != "Intersection" && 
+                                  formattedCrossStreet != "Intersections La" &&
+                                  !formattedCrossStreet.contains("and Intersection")
+        
+        // Generate location-specific message based on available data
+        let message: String
+        
+        if hasValidCrossStreet {
+            // We have two valid street names - use more specific messaging
+            let scenariosWithBothStreets = [
+                "\(callSign), we show you approaching \(formattedStreet) and \(formattedCrossStreet). Proceed with caution. Tower out.",
+                "\(callSign), you are currently on \(formattedStreet) near \(formattedCrossStreet). Be advised of heavy traffic ahead. Tower out.",
+                "\(callSign), traffic control shows you at \(formattedStreet) and \(formattedCrossStreet). Hold at next signal. Tower out.",
+                "\(callSign), radar indicates you're at the intersection of \(formattedStreet) and \(formattedCrossStreet). Proceed with caution. Tower out."
+            ]
+            message = scenariosWithBothStreets.randomElement() ?? "\(callSign), we have you at \(formattedStreet) and \(formattedCrossStreet). Continue as planned. Tower out."
+        } else {
+            // We only have the main street - use more generic messaging
+            let scenariosWithOneStreet = [
+                "\(callSign), we show you traveling on \(formattedStreet). Proceed with caution. Tower out.",
+                "\(callSign), you are currently on \(formattedStreet). Be advised of heavy traffic ahead. Tower out.",
+                "\(callSign), traffic control shows you on \(formattedStreet). Hold at next signal. Tower out.",
+                "\(callSign), radar indicates you're traveling on \(formattedStreet). Continue and report at next intersection. Tower out."
+            ]
+            message = scenariosWithOneStreet.randomElement() ?? "\(callSign), we have you on \(formattedStreet). Continue as planned. Tower out."
+        }
+        
         addTowerMessage(message)
         speechService.speak(message, withCallSign: callSign)
     }

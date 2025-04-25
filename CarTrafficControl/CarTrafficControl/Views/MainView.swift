@@ -156,7 +156,11 @@ struct MainView: View {
             
             HStack {
                 Image(systemName: "location.fill")
-                Text("\(locationService.currentStreet) & \(locationService.currentCrossStreet)")
+                if !locationService.currentCrossStreet.isEmpty {
+                    Text("\(locationService.currentStreet) & \(locationService.currentCrossStreet)")
+                } else {
+                    Text(locationService.currentStreet)
+                }
             }
             .padding(.vertical, 4)
         }
@@ -184,8 +188,10 @@ struct MainView: View {
         .cornerRadius(10)
     }
     
+    @Environment(\.colorScheme) var colorScheme
 
-private var controlsView: some View {
+    private var controlsView: some View {
+            
         VStack(spacing: 16) {
             HStack {
                 if speechService.isSpeaking {
@@ -214,7 +220,7 @@ private var controlsView: some View {
             }
         }
         .padding()
-        .background(Color.white)
+        .background(colorScheme == .dark ? Color.black : Color.white)
         .cornerRadius(10)
         .shadow(radius: 2)
     }
