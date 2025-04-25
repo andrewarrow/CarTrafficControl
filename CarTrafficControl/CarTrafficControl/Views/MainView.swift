@@ -100,41 +100,58 @@ struct MainView: View {
     @State private var showingSettings = false
     
     var body: some View {
-        VStack {
-            // Header with call sign and settings button
-            HStack {
-                if let callSign = towerController.userVehicle?.callSign {
-                    Text("Call Sign: \(callSign)")
-                        .font(.title2)
-                        .padding()
-                        .background(Color.blue.opacity(0.2))
-                        .cornerRadius(10)
+        ScrollView {
+            VStack {
+                // Header with call sign and settings button
+                HStack {
+                    if let callSign = towerController.userVehicle?.callSign {
+                        Text("Call Sign: \(callSign)")
+                            .font(.title2)
+                            .padding()
+                            .background(Color.blue.opacity(0.2))
+                            .cornerRadius(10)
+                    }
+                    
+                    Spacer()
+                    
+                    Button(action: {
+                        showingSettings = true
+                    }) {
+                        Image(systemName: "gearshape.fill")
+                            .font(.title2)
+                            .foregroundColor(.blue)
+                            .padding(10)
+                            .background(Color.blue.opacity(0.1))
+                            .clipShape(Circle())
+                    }
                 }
                 
-                Spacer()
+                // Current location display
+                locationInfoView
                 
-                Button(action: {
-                    showingSettings = true
-                }) {
-                    Image(systemName: "gearshape.fill")
-                        .font(.title2)
-                        .foregroundColor(.blue)
-                        .padding(10)
-                        .background(Color.blue.opacity(0.1))
-                        .clipShape(Circle())
-                }
+                // Tower messages
+                messageListView
+                
+                // Tower status view
+                controlsView
             }
-            
-            // Current location display
-            locationInfoView
-            
-            // Tower messages
-            messageListView
-            
-            // Tower status view
-            controlsView
+            .padding()
         }
-        .padding()
+        .refreshable {
+            // This will automatically show a progress view during refresh
+            await towerController.requestNewTowerMessage()
+        }
+        .overlay(Group {
+            if towerController.isRefreshing {
+                Color.black.opacity(0.2)
+                    .ignoresSafeArea()
+                    .overlay(
+                        ProgressView()
+                            .scaleEffect(1.5)
+                            .tint(.white)
+                    )
+            }
+        })
         .onAppear {
             locationService.startLocationUpdates()
         }

@@ -11,6 +11,7 @@ class TowerController: ObservableObject {
     @Published var towerMessages: [String] = []
     @Published var userMessages: [String] = []
     @Published var isCommunicationValid = false
+    @Published var isRefreshing = false
     
     init(speechService: SpeechService, locationService: LocationService) {
         self.speechService = speechService
@@ -192,6 +193,51 @@ class TowerController: ObservableObject {
     private func addUserMessage(_ message: String) {
         DispatchQueue.main.async {
             self.userMessages.append(message)
+        }
+    }
+    
+    // Function to manually request a new tower message - used for pull-to-refresh
+    func requestNewTowerMessage() async {
+        guard let callSign = userVehicle?.callSign else { return }
+        
+        DispatchQueue.main.async {
+            self.isRefreshing = true
+        }
+        
+        // Get current location
+        await withCheckedContinuation { continuation in
+            // Request updated location
+            self.locationService.startLocationUpdates()
+            
+            // Wait briefly for location to update
+            DispatchQueue.main.asyncAfter(deadline: .now() + 1.0) {
+                // Generate a new message based on current location
+                let street = self.formatStreetForSpeech(self.locationService.currentStreet)
+                let crossStreet = self.formatStreetForSpeech(self.locationService.currentCrossStreet)
+                
+                // Create a special status update message
+                let hasValidCrossStreet = !crossStreet.isEmpty && 
+                                        crossStreet != "unknown intersection" && 
+                                        crossStreet != "Intersection" && 
+                                        crossStreet != "Intersections La" &&
+                                        !crossStreet.contains("and Intersection")
+                
+                let message: String
+                if hasValidCrossStreet {
+                    message = "\(callSign), status update requested. Your position is confirmed at \(street) and \(crossStreet). Continue on current heading. Tower out."
+                } else {
+                    message = "\(callSign), status update requested. Your position is confirmed on \(street). Continue on current heading. Tower out."
+                }
+                
+                // Clear previous tower messages and add the new one
+                DispatchQueue.main.async {
+                    self.towerMessages.removeAll()
+                    self.addTowerMessage(message)
+                    self.speechService.speak(message, withCallSign: callSign)
+                    self.isRefreshing = false
+                    continuation.resume()
+                }
+            }
         }
     }
 }

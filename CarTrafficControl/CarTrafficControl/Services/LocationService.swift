@@ -23,6 +23,8 @@ class LocationService: NSObject, ObservableObject, CLLocationManagerDelegate {
     }
     
     func startLocationUpdates() {
+        // Request a fresh location update
+        locationManager.requestLocation()
         locationManager.startUpdatingLocation()
     }
     
@@ -246,6 +248,18 @@ class LocationService: NSObject, ObservableObject, CLLocationManagerDelegate {
     }
     
     func locationManager(_ manager: CLLocationManager, didFailWithError error: Error) {
+        // Handle location errors but don't interrupt app flow
         print("Location error: \(error.localizedDescription)")
+        
+        // If the error is from requestLocation(), we still have continuous updates from startUpdatingLocation()
+        if (error as NSError).domain == kCLErrorDomain {
+            if (error as NSError).code == CLError.locationUnknown.rawValue {
+                // This is a temporary error that might be resolved shortly - no need to show to user
+                print("Location currently unknown but might resolve soon")
+            } else {
+                // Other location errors - continue with last known location
+                print("Location error: \(error.localizedDescription), continuing with last known location")
+            }
+        }
     }
 }
