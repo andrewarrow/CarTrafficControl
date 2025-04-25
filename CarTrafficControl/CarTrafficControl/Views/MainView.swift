@@ -131,13 +131,8 @@ struct MainView: View {
             // Tower messages
             messageListView
             
-            // Voice recording controls
+            // Tower status view
             controlsView
-            
-            // Developer testing controls (hidden in production)
-            #if DEBUG
-            developerControls
-            #endif
         }
         .padding()
         .onAppear {
@@ -189,76 +184,17 @@ struct MainView: View {
         .cornerRadius(10)
     }
     
-    // Developer controls for testing
-private var developerControls: some View {
-    VStack {
-        Divider()
-            .padding(.vertical)
-        
-        Text("Developer Options")
-            .font(.caption)
-            .foregroundColor(.gray)
-        
-        Toggle("Direct Voice Test Mode", isOn: Binding(
-            get: { UserDefaults.standard.bool(forKey: "DEBUG_DIRECT_VOICE") },
-            set: { newValue in
-                UserDefaults.standard.set(newValue, forKey: "DEBUG_DIRECT_VOICE")
-                if let speechService = speechService as? SpeechService {
-                    speechService.setDirectVoiceTestingMode(enabled: newValue)
-                }
-            }
-        ))
-        .font(.caption)
-        .padding(.horizontal)
-        
-        Button("Test Voice") {
-            if let callSign = towerController.userVehicle?.callSign {
-                speechService.speak("This is a test of the voice engine without radio effects", withCallSign: callSign)
-            }
-        }
-        .font(.caption)
-        .padding(.top, 4)
-    }
-    .padding()
-    .background(Color.gray.opacity(0.1))
-    .cornerRadius(10)
-}
 
 private var controlsView: some View {
         VStack(spacing: 16) {
             HStack {
-                Text(speechService.isListening ? "Listening..." : "Press to Speak")
-                    .font(.headline)
-                    .foregroundColor(speechService.isListening ? .green : .primary)
-                
-                Spacer()
-                
                 if speechService.isSpeaking {
                     Text("Tower Speaking...")
                         .foregroundColor(.blue)
                         .padding(.horizontal)
                 }
-            }
-            
-            HStack {
-                Button(action: {
-                    if speechService.isListening {
-                        speechService.stopListening()
-                    } else {
-                        speechService.startListening()
-                    }
-                }) {
-                    HStack {
-                        Image(systemName: speechService.isListening ? "mic.fill" : "mic")
-                        Text(speechService.isListening ? "Stop" : "Start")
-                    }
-                    .padding()
-                    .frame(maxWidth: .infinity)
-                    .background(speechService.isListening ? Color.red : Color.blue)
-                    .foregroundColor(.white)
-                    .cornerRadius(10)
-                }
-                .disabled(speechService.isSpeaking)
+                
+                Spacer()
             }
             
             if let last = towerController.userMessages.last {
