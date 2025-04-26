@@ -18,7 +18,7 @@ struct SetupView: View {
                 Section(header: Text("Vehicle Information")) {
                     Picker("Car Make", selection: $selectedCarMake) {
                         Text("Select a car make").tag(nil as CarMake?)
-                        ForEach(popularCarMakes) { make in
+                        ForEach(popularCarMakes.dropFirst()) { make in
                             Text(make.name).tag(make as CarMake?)
                         }
                     }
@@ -107,8 +107,8 @@ struct SetupView: View {
         if let savedMakeName = UserDefaults.standard.string(forKey: UserVehicle.makeKey) {
             selectedCarMake = popularCarMakes.first(where: { $0.name == savedMakeName })
         } else {
-            // Default to Kia if no saved preference
-            selectedCarMake = popularCarMakes.first(where: { $0.name == "Kia" })
+            // No default selection
+            selectedCarMake = nil
         }
         
         // Load saved license plate

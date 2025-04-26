@@ -70,33 +70,53 @@ struct ContentView: View {
     @StateObject private var towerController: TowerController
     @StateObject private var voiceSettings = VoiceSettings()
     
+    // Lifecycle manager to handle app state changes
+    @EnvironmentObject private var lifecycleManager: AppLifecycleManager
+    
     @State private var isSetupComplete = false
     
-    init() {
+    // Single init function with optional parameter for testing
+    init(lifecycleManager: AppLifecycleManager? = nil) {
         let speech = SpeechService()
         let location = LocationService()
         _speechService = StateObject(wrappedValue: speech)
         _locationService = StateObject(wrappedValue: location)
         _towerController = StateObject(wrappedValue: TowerController(speechService: speech, locationService: location))
+        
+        // If a lifecycle manager was passed directly (for tests), use it
+        if let manager = lifecycleManager {
+            manager.register(speechService: speech)
+        }
     }
     
     var body: some View {
-        if isSetupComplete {
-            MainView(onReturnToSetup: {
-                // Reset to setup view
-                isSetupComplete = false
-            })
-                .environmentObject(speechService)
-                .environmentObject(locationService)
+        Group {
+            if isSetupComplete {
+                MainView(onReturnToSetup: {
+                    // Reset to setup view
+                    isSetupComplete = false
+                })
+                    .environmentObject(speechService)
+                    .environmentObject(locationService)
+                    .environmentObject(towerController)
+                    .environmentObject(voiceSettings)
+            } else {
+                SetupView(onSetupComplete: {
+                    isSetupComplete = true
+                })
                 .environmentObject(towerController)
                 .environmentObject(voiceSettings)
-        } else {
-            SetupView(onSetupComplete: {
-                isSetupComplete = true
-            })
-            .environmentObject(towerController)
-            .environmentObject(voiceSettings)
-            .environmentObject(speechService)
+                .environmentObject(speechService)
+            }
         }
+        .onAppear {
+            // Register services with the lifecycle manager when view appears
+            registerServices()
+        }
+    }
+    
+    // Register services for app lifecycle management
+    private func registerServices() {
+        lifecycleManager.register(speechService: speechService)
     }
 }

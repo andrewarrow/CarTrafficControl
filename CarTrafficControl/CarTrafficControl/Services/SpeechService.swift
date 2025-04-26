@@ -66,6 +66,14 @@ class SpeechService: NSObject, ObservableObject, SFSpeechRecognizerDelegate, AVS
         
         print("🔊 DEBUG: Initializing SpeechService")
         
+        // Make sure both engines are stopped and in a clean state
+        if audioEngine.isRunning {
+            audioEngine.stop()
+        }
+        if speechRecognitionEngine.isRunning {
+            speechRecognitionEngine.stop()
+        }
+        
         // Critical: Configure quality settings for speech synthesizer
         let audioSession = AVAudioSession.sharedInstance()
         do {
@@ -682,23 +690,37 @@ class SpeechService: NSObject, ObservableObject, SFSpeechRecognizerDelegate, AVS
             recognitionTask = nil
         }
         
-        // Configure audio session
-        let audioSession = AVAudioSession.sharedInstance()
-        try? audioSession.setCategory(.record, mode: .measurement, options: .duckOthers)
-        try? audioSession.setActive(true, options: .notifyOthersOnDeactivation)
+        // Create a new audio engine for speech recognition to avoid conflicts
+        speechRecognitionEngine.stop()
         
+        // Configure audio session for recording
+        let audioSession = AVAudioSession.sharedInstance()
+        do {
+            // Use record mode
+            try audioSession.setCategory(.record, mode: .default, options: .duckOthers)
+            try audioSession.setActive(true, options: .notifyOthersOnDeactivation)
+        } catch {
+            print("🎤 ERROR: Could not configure audio session for recording: \(error)")
+            return
+        }
+        
+        // Create a fresh recognition request
         recognitionRequest = SFSpeechAudioBufferRecognitionRequest()
         
         // Check for recognition request
         guard let recognitionRequest = recognitionRequest else {
+            print("🎤 ERROR: Unable to create recognition request")
             return
         }
         
-        // Get the input node - no need to unwrap as it's not optional in recent iOS versions
-        let inputNode = speechRecognitionEngine.inputNode
-        
         // Configure request
         recognitionRequest.shouldReportPartialResults = true
+        
+        // Start speechRecognitionEngine (completely separate from the audio effects engine)
+        speechRecognitionEngine.reset() // Start fresh
+        
+        // Get the input node
+        let inputNode = speechRecognitionEngine.inputNode
         
         // Start recognition task
         recognitionTask = speechRecognizer?.recognitionTask(with: recognitionRequest) { [weak self] result, error in
@@ -712,6 +734,12 @@ class SpeechService: NSObject, ObservableObject, SFSpeechRecognizerDelegate, AVS
             }
             
             if error != nil || isFinal {
+                // If there's an error, log it
+                if let error = error {
+                    print("🎤 ERROR: Speech recognition error: \(error)")
+                }
+                
+                // Clean up
                 self.speechRecognitionEngine.stop()
                 inputNode.removeTap(onBus: 0)
                 
@@ -722,24 +750,67 @@ class SpeechService: NSObject, ObservableObject, SFSpeechRecognizerDelegate, AVS
             }
         }
         
-        // Configure microphone input
+        print("🎤 DEBUG: Setting up recording tap")
+        
+        // Configure microphone input with proper error handling
         let recordingFormat = inputNode.outputFormat(forBus: 0)
-        inputNode.installTap(onBus: 0, bufferSize: 1024, format: recordingFormat) { buffer, _ in
-            self.recognitionRequest?.append(buffer)
+        
+        // Use a safer approach to installing the tap
+        do {
+            // Make sure there's no existing tap
+            inputNode.removeTap(onBus: 0)
+            
+            // Install a new tap with proper buffer settings
+            inputNode.installTap(onBus: 0, bufferSize: 1024, format: recordingFormat) { [weak self] buffer, _ in
+                self?.recognitionRequest?.append(buffer)
+            }
+            print("🎤 DEBUG: Successfully installed tap on input node")
+        } catch {
+            print("🎤 ERROR: Failed to install tap: \(error)")
+            return
         }
         
-        // Start speech recognition engine
+        // Start speech recognition engine with proper error handling
         speechRecognitionEngine.prepare()
-        try? speechRecognitionEngine.start()
+        do {
+            try speechRecognitionEngine.start()
+            print("🎤 DEBUG: Successfully started speech recognition engine")
+        } catch {
+            print("🎤 ERROR: Failed to start speech recognition engine: \(error)")
+            return
+        }
         
         isListening = true
         recognizedText = ""
     }
     
     func stopListening() {
-        speechRecognitionEngine.stop()
+        print("🎤 DEBUG: Stopping listening")
+        
+        // End the recognition request first
         recognitionRequest?.endAudio()
+        
+        // Cancel any ongoing recognition task
+        if let recognitionTask = recognitionTask {
+            recognitionTask.cancel()
+            self.recognitionTask = nil
+        }
+        
+        // Remove any tap on the input node to prevent the crash
+        if speechRecognitionEngine.isRunning {
+            let inputNode = speechRecognitionEngine.inputNode
+            inputNode.removeTap(onBus: 0)
+        }
+        
+        // Stop the audio engine
+        speechRecognitionEngine.stop()
+        
+        // Clean up resources
+        recognitionRequest = nil
+        
+        // Update state
         isListening = false
+        print("🎤 DEBUG: Successfully stopped listening")
     }
     
     // MARK: - SFSpeechRecognizerDelegate
@@ -749,5 +820,33 @@ class SpeechService: NSObject, ObservableObject, SFSpeechRecognizerDelegate, AVS
             isListening = false
             stopListening()
         }
+    }
+    
+    // MARK: - App lifecycle cleanup
+    
+    // Call this method when the app is going to the background or terminating
+    func cleanup() {
+        print("🎤 DEBUG: Performing SpeechService cleanup")
+        
+        // Stop any speech
+        stopSpeaking()
+        
+        // Stop any speech recognition
+        stopListening()
+        
+        // Stop all audio engines
+        if audioEngine.isRunning {
+            audioEngine.stop()
+        }
+        
+        if speechRecognitionEngine.isRunning {
+            speechRecognitionEngine.stop()
+        }
+        
+        // Reset state
+        isSpeaking = false
+        isListening = false
+        
+        print("🎤 DEBUG: SpeechService cleanup complete")
     }
 }
