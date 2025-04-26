@@ -181,7 +181,8 @@ class TowerController: ObservableObject {
         }
     }
     
-    private func addUserMessage(_ message: String) {
+    // Changed to public to allow direct calls from MainView
+    func addUserMessage(_ message: String) {
         DispatchQueue.main.async {
             self.userMessages = [message]
         }
@@ -228,17 +229,16 @@ class TowerController: ObservableObject {
         }
     }
     
-    // Function that handles the listen-speak loop
-    // Called by MainView when the user has completed a listening cycle
+    // Function that handles the listening process 
+    // (No longer automatically requests tower messages)
     func processListeningLoop(userText: String, callSign: String) {
-        // Add user message
+        // Just add the user message - tower messages will be triggered by manual button
         addUserMessage(userText)
         
-        // Prepare response after a short delay
-        DispatchQueue.main.asyncAfter(deadline: .now() + 1.0) {
-            Task {
-                await self.requestNewTowerMessage()
-            }
-        }
+        // Check if communication starts and ends with callsign
+        let normalizedText = userText.uppercased()
+        let hasProperFormat = normalizedText.hasPrefix(callSign) && normalizedText.hasSuffix(callSign)
+        
+        isCommunicationValid = hasProperFormat
     }
 }
