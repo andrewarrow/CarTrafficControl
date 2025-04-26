@@ -205,17 +205,42 @@ class TowerController: ObservableObject {
                 let street = self.formatStreetForSpeech(self.locationService.currentStreet)
                 let crossStreet = self.formatStreetForSpeech(self.locationService.currentCrossStreet)
                 
-                // Create a special status update message
-                // Simplified status update with just street name
-                let message = "\(callSign) approach end of \(street) and hold."
+                // Create a message with some variety
+                let randomMessages = [
+                    "\(callSign) approach end of \(street) and hold.",
+                    "\(callSign) proceed with caution on \(street).",
+                    "\(callSign) maintain current position on \(street).",
+                    "\(callSign) watch for traffic ahead on \(street).",
+                    "\(callSign) reduce speed on \(street)."
+                ]
                 
-                // Clear previous tower messages and add the new one
+                let message = randomMessages.randomElement() ?? "\(callSign) proceed on \(street)."
+                
+                // Add the new message without clearing previous ones
                 DispatchQueue.main.async {
-                    self.towerMessages.removeAll()
                     self.addTowerMessage(message)
                     self.speechService.speak(message, withCallSign: callSign)
                     self.isRefreshing = false
                     continuation.resume()
+                }
+            }
+        }
+    }
+    
+    // Function that handles the listen-speak loop
+    // Called by MainView when the user has completed a listening cycle
+    func processListeningLoop(userText: String, callSign: String) {
+        // Add user message
+        addUserMessage(userText)
+        
+        // Check for call sign in the message (already done in MainView)
+        let hasCallSign = userText.uppercased().contains(callSign)
+        
+        if hasCallSign {
+            // Prepare response after a short delay
+            DispatchQueue.main.asyncAfter(deadline: .now() + 1.0) {
+                Task {
+                    await self.requestNewTowerMessage()
                 }
             }
         }

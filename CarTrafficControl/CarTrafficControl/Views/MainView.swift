@@ -140,6 +140,11 @@ struct MainView: View {
     @EnvironmentObject var voiceSettings: VoiceSettings
     
     @State private var showingSettings = false
+    @State private var isListeningMode = false
+    @State private var hasPlayedWelcomeMessage = false
+    
+    // For visual animation of listening mode
+    @State private var listeningAnimation = false
     
     // Add callback for returning to setup screen
     var onReturnToSetup: (() -> Void)?
@@ -153,8 +158,11 @@ struct MainView: View {
                         Text("Call Sign: \(callSign)")
                             .font(.title2)
                             .padding()
-                            .background(Color.blue.opacity(0.2))
+                            .background(isListeningMode ? 
+                                Color.red.opacity(listeningAnimation ? 0.4 : 0.2) : 
+                                Color.blue.opacity(0.2))
                             .cornerRadius(10)
+                            .animation(.easeInOut(duration: 1.0).repeatForever(autoreverses: true), value: listeningAnimation)
                     }
                     
                     Spacer()
@@ -193,6 +201,13 @@ struct MainView: View {
                 
                 // Tower status view
                 controlsView
+                
+                // Listening mode indicator
+                if isListeningMode {
+                    listeningModeView
+                        .transition(.opacity)
+                        .animation(.easeInOut, value: isListeningMode)
+                }
             }
             .padding()
         }
@@ -217,6 +232,31 @@ struct MainView: View {
         .onDisappear {
             locationService.stopLocationUpdates()
             speechService.stopListening()
+        }
+        .onChange(of: speechService.isSpeaking) { isSpeaking in
+            // When tower stops speaking, check if it was the welcome message
+            if !isSpeaking && !hasPlayedWelcomeMessage && towerController.towerMessages.count == 1 {
+                // This is the welcome message finishing
+                hasPlayedWelcomeMessage = true
+                
+                // Start listening mode after a brief pause to allow the welcome message to sink in
+                DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
+                    startListeningMode()
+                }
+            }
+        }
+        .onChange(of: speechService.recognizedText) { text in
+            // Check if user has said their call sign to end listening mode
+            if isListeningMode, let callSign = towerController.userVehicle?.callSign, !text.isEmpty {
+                let normalizedText = text.uppercased()
+                if normalizedText.contains(callSign) {
+                    // User said their call sign, end listening mode
+                    endListeningMode()
+                    
+                    // Process the user's message and continue the communication loop
+                    towerController.processListeningLoop(userText: text, callSign: callSign)
+                }
+            }
         }
         .sheet(isPresented: $showingSettings) {
             VoiceSettingsView()
@@ -274,6 +314,12 @@ struct MainView: View {
                     Text("Tower Speaking...")
                         .foregroundColor(.blue)
                         .padding(.horizontal)
+                } else if isListeningMode {
+                    Text("Listening Mode Active")
+                        .foregroundColor(.red)
+                        .padding(.horizontal)
+                        .opacity(listeningAnimation ? 1.0 : 0.7)
+                        .animation(.easeInOut(duration: 0.8).repeatForever(autoreverses: true), value: listeningAnimation)
                 }
                 
                 Spacer()
@@ -296,9 +342,70 @@ struct MainView: View {
             }
         }
         .padding()
-        .background(colorScheme == .dark ? Color.black : Color.white)
+        .background(isListeningMode ? 
+            (colorScheme == .dark ? Color.red.opacity(0.15) : Color.red.opacity(0.05)) : 
+            (colorScheme == .dark ? Color.black : Color.white))
         .cornerRadius(10)
         .shadow(radius: 2)
+    }
+    
+    // Listening mode view with microphone icon
+    private var listeningModeView: some View {
+        VStack(spacing: 20) {
+            Image(systemName: "mic.fill")
+                .font(.system(size: 60))
+                .foregroundColor(.red)
+                .padding()
+                .background(
+                    Circle()
+                        .fill(Color.red.opacity(listeningAnimation ? 0.3 : 0.1))
+                        .frame(width: 120, height: 120)
+                )
+                .scaleEffect(listeningAnimation ? 1.1 : 1.0)
+                
+            Text("LISTENING MODE")
+                .font(.headline)
+                .foregroundColor(.red)
+                .padding(.bottom, 5)
+                
+            Text("Say your call sign to end listening mode")
+                .font(.subheadline)
+                .foregroundColor(.secondary)
+                .multilineTextAlignment(.center)
+                
+            if let callSign = towerController.userVehicle?.callSign {
+                Text("Your call sign: \(callSign)")
+                    .font(.callout)
+                    .foregroundColor(.primary)
+                    .padding(.top, 5)
+            }
+        }
+        .padding()
+        .frame(maxWidth: .infinity)
+        .background(Color.secondary.opacity(0.1))
+        .cornerRadius(15)
+    }
+    
+    // Function to start listening mode
+    private func startListeningMode() {
+        // Start the animation
+        listeningAnimation = true
+        
+        // Start the speech recognition
+        speechService.startListening()
+        
+        // Set the state
+        isListeningMode = true
+    }
+    
+    // Function to end listening mode
+    private func endListeningMode() {
+        // Stop the speech recognition
+        speechService.stopListening()
+        
+        // Set the state
+        isListeningMode = false
+        listeningAnimation = false
     }
 }
 
