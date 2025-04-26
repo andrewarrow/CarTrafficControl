@@ -51,6 +51,12 @@ class VoiceSettings: ObservableObject {
         for voice in availableVoices {
             print("Selected: \(voice.name), ID: \(voice.identifier), Quality: \(voice.quality.rawValue)")
         }
+        
+        // Auto-select first voice if there are voices but none selected
+        if selectedVoiceIdentifier == nil && !availableVoices.isEmpty {
+            selectedVoiceIdentifier = availableVoices[0].identifier
+            print("Auto-selected voice in refreshAvailableVoices: \(availableVoices[0].name)")
+        }
     }
     
     func getVoiceByIdentifier(_ identifier: String) -> AVSpeechSynthesisVoice? {

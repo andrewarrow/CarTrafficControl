@@ -15,7 +15,7 @@ struct VoiceSettingsView: View {
     var body: some View {
         NavigationView {
             Form {
-                Section(header: Text("Premium & Enhanced Voices"), footer: Text("Only voices marked as Premium or Enhanced are shown.")) {
+                Section(header: Text("Premium & Enhanced Voices"), footer: Text("Only voices marked as Premium or Enhanced are shown. Go to Settings > Accessibility > Spoken Content > Voices > English > Voice and download enhanced voices")) {
                     if voiceSettings.availableVoices.isEmpty {
                         VStack(spacing: 10) {
                             Text("No premium or enhanced voices found")
@@ -97,11 +97,6 @@ struct VoiceSettingsView: View {
                                 .bold()
                         }
                     }
-                    
-                    Button("Reset to Default Voice") {
-                        voiceSettings.selectedVoiceIdentifier = nil
-                    }
-                    .foregroundColor(.red)
                 }
             }
             .navigationTitle("Tower Voice Settings")
@@ -114,6 +109,11 @@ struct VoiceSettingsView: View {
             }
             .onAppear {
                 voiceSettings.refreshAvailableVoices()
+                
+                // Auto-select first voice if there are voices but none selected
+                if voiceSettings.selectedVoiceIdentifier == nil && !voiceSettings.availableVoices.isEmpty {
+                    voiceSettings.selectedVoiceIdentifier = voiceSettings.availableVoices[0].identifier
+                }
             }
         }
     }
