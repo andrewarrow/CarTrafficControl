@@ -74,18 +74,16 @@ struct MainView: View {
     }
     
     private var messageListView: some View {
-        ScrollView {
-            VStack(alignment: .leading, spacing: 12) {
-                ForEach(Array(zip(towerController.towerMessages.indices, towerController.towerMessages)), id: \.0) { _, message in
-                    MessageBubbleView(message: message, isFromTower: true)
-                }
-                
-                ForEach(Array(zip(towerController.userMessages.indices, towerController.userMessages)), id: \.0) { _, message in
-                    MessageBubbleView(message: message, isFromTower: false)
-                }
+        VStack(alignment: .leading, spacing: 12) {
+            if let lastTowerMessage = towerController.towerMessages.last {
+                MessageBubbleView(message: lastTowerMessage, isFromTower: true)
             }
-            .padding()
+            
+            if let lastUserMessage = towerController.userMessages.last {
+                MessageBubbleView(message: lastUserMessage, isFromTower: false)
+            }
         }
+        .padding()
         .frame(maxWidth: .infinity)
         .background(Color.gray.opacity(0.05))
         .cornerRadius(10)

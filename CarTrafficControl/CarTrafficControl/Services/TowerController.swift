@@ -176,13 +176,14 @@ class TowerController: ObservableObject {
     
     private func addTowerMessage(_ message: String) {
         DispatchQueue.main.async {
-            self.towerMessages.append(message)
+            self.towerMessages = [message]
+            self.userMessages = []
         }
     }
     
     private func addUserMessage(_ message: String) {
         DispatchQueue.main.async {
-            self.userMessages.append(message)
+            self.userMessages = [message]
         }
     }
     
