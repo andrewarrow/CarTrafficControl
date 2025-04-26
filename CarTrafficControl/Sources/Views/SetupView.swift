@@ -54,6 +54,7 @@ struct SetupView: View {
             }
             .navigationTitle("CTC Setup")
         }
+        .navigationViewStyle(StackNavigationViewStyle())
         .onAppear {
             requestPermissions()
         }

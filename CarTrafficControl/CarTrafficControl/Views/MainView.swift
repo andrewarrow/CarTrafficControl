@@ -116,6 +116,7 @@ struct VoiceSettingsView: View {
                 }
             }
         }
+        .navigationViewStyle(StackNavigationViewStyle())
     }
     
     private func isPremiumVoice(_ voice: AVSpeechSynthesisVoice) -> Bool {
