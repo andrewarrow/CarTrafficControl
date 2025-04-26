@@ -1,5 +1,6 @@
 import SwiftUI
 import AVFoundation
+import UIKit
 
 // Include VoiceSettingsView in the MainView file to avoid scope issues
 struct VoiceSettingsView: View {
@@ -16,8 +17,29 @@ struct VoiceSettingsView: View {
             Form {
                 Section(header: Text("Premium & Enhanced Voices"), footer: Text("Only voices marked as Premium or Enhanced are shown.")) {
                     if voiceSettings.availableVoices.isEmpty {
-                        Text("No premium or enhanced voices found")
-                            .foregroundColor(.secondary)
+                        VStack(spacing: 10) {
+                            Text("No premium or enhanced voices found")
+                                .foregroundColor(.secondary)
+                            
+                            Button(action: {
+                                if let url = URL(string: "App-Prefs:root=ACCESSIBILITY&path=SPEECH") {
+                                    UIApplication.shared.open(url, options: [:], completionHandler: nil)
+                                }
+                            }) {
+                                Text("Go to Settings")
+                                    .foregroundColor(.white)
+                                    .padding(.horizontal, 16)
+                                    .padding(.vertical, 8)
+                                    .background(Color.blue)
+                                    .cornerRadius(8)
+                            }
+                            
+                            Text("Go to Settings > Accessibility > Spoken Content > Voices and download enhanced voices")
+                                .font(.caption)
+                                .foregroundColor(.secondary)
+                                .multilineTextAlignment(.center)
+                        }
+                        .padding()
                     } else {
                         List {
                             ForEach(voiceSettings.availableVoices, id: \.identifier) { voice in
