@@ -77,7 +77,7 @@ struct SetupView: View {
                     .buttonStyle(.borderedProminent)
                 }
             }
-            .navigationTitle("CTC Setup")
+            .navigationTitle("CTV Setup")
         }
         .navigationViewStyle(StackNavigationViewStyle())
         .onAppear {
