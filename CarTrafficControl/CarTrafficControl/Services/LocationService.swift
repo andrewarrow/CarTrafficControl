@@ -45,9 +45,9 @@ class LocationService: NSObject, ObservableObject, CLLocationManagerDelegate {
         guard let location = locations.last else { return }
         currentLocation = location
         
-        // Get street names using both methods
+        // Get only the primary street name
         reverseGeocodePrimaryStreet(location)
-        searchForIntersectingStreets(location)
+        // No longer searching for intersections
     }
     
     // Function to get primary street name through reverse geocoding

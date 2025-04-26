@@ -233,7 +233,7 @@ struct MainView: View {
             HStack {
                 Image(systemName: "location.fill")
                 if !locationService.currentCrossStreet.isEmpty {
-                    Text("\(locationService.currentStreet) & \(locationService.currentCrossStreet)")
+                    Text("\(locationService.currentStreet)")
                 } else {
                     Text(locationService.currentStreet)
                 }

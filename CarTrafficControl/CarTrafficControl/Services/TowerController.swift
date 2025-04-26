@@ -62,17 +62,12 @@ class TowerController: ObservableObject {
         // Create personalized welcome message with location
         let welcomeMessage: String
         
-        if street != "unknown street" && !crossStreet.isEmpty && 
-           crossStreet != "unknown intersection" && crossStreet != "Intersection" && 
-           crossStreet != "Intersections La" && !crossStreet.contains("& Intersection") {
-            // We have two good street names
-            welcomeMessage = "\(callSign), Car Traffic Control tower now tracking your vehicle at \(street) and \(crossStreet). Maintain current speed and proceed with caution. Tower out."
-        } else if street != "unknown street" {
-            // We have at least the main street
-            welcomeMessage = "\(callSign), Car Traffic Control tower now tracking your vehicle on \(street). Maintain current speed and report at next intersection. Tower out."
+        if street != "unknown street" {
+            // Simplified welcome message with just the street name
+            welcomeMessage = "\(callSign) approach end of \(street) and hold. Tower out."
         } else {
             // Fallback if no location data is available
-            welcomeMessage = "\(callSign), Car Traffic Control tower now tracking your vehicle. Maintain current speed and report at next intersection. Tower out."
+            welcomeMessage = "\(callSign) maintain position. Tower out."
         }
         
         // Send and speak the welcome message
@@ -85,12 +80,35 @@ class TowerController: ObservableObject {
         // Replace "&" with "and" for better pronunciation
         var formatted = street.replacingOccurrences(of: "&", with: "and")
         
-        // Other potential speech improvements
+        // Convert abbreviations to full names for better pronunciation
+        // With periods
         formatted = formatted.replacingOccurrences(of: "St.", with: "Street")
         formatted = formatted.replacingOccurrences(of: "Ave.", with: "Avenue")
         formatted = formatted.replacingOccurrences(of: "Rd.", with: "Road")
         formatted = formatted.replacingOccurrences(of: "Blvd.", with: "Boulevard")
         formatted = formatted.replacingOccurrences(of: "Dr.", with: "Drive")
+        formatted = formatted.replacingOccurrences(of: "Ln.", with: "Lane")
+        formatted = formatted.replacingOccurrences(of: "Ct.", with: "Court")
+        formatted = formatted.replacingOccurrences(of: "Pl.", with: "Place")
+        formatted = formatted.replacingOccurrences(of: "Pkwy.", with: "Parkway")
+        formatted = formatted.replacingOccurrences(of: "Cir.", with: "Circle")
+        formatted = formatted.replacingOccurrences(of: "Ter.", with: "Terrace")
+        formatted = formatted.replacingOccurrences(of: "Hwy.", with: "Highway")
+        
+        // Without periods (matching word boundaries to avoid partial matches)
+        let wordBoundary = "\\b"
+        formatted = formatted.replacingOccurrences(of: wordBoundary + "St" + wordBoundary, with: "Street", options: .regularExpression)
+        formatted = formatted.replacingOccurrences(of: wordBoundary + "Ave" + wordBoundary, with: "Avenue", options: .regularExpression)
+        formatted = formatted.replacingOccurrences(of: wordBoundary + "Rd" + wordBoundary, with: "Road", options: .regularExpression)
+        formatted = formatted.replacingOccurrences(of: wordBoundary + "Blvd" + wordBoundary, with: "Boulevard", options: .regularExpression)
+        formatted = formatted.replacingOccurrences(of: wordBoundary + "Dr" + wordBoundary, with: "Drive", options: .regularExpression)
+        formatted = formatted.replacingOccurrences(of: wordBoundary + "Ln" + wordBoundary, with: "Lane", options: .regularExpression)
+        formatted = formatted.replacingOccurrences(of: wordBoundary + "Ct" + wordBoundary, with: "Court", options: .regularExpression)
+        formatted = formatted.replacingOccurrences(of: wordBoundary + "Pl" + wordBoundary, with: "Place", options: .regularExpression)
+        formatted = formatted.replacingOccurrences(of: wordBoundary + "Pkwy" + wordBoundary, with: "Parkway", options: .regularExpression)
+        formatted = formatted.replacingOccurrences(of: wordBoundary + "Cir" + wordBoundary, with: "Circle", options: .regularExpression)
+        formatted = formatted.replacingOccurrences(of: wordBoundary + "Ter" + wordBoundary, with: "Terrace", options: .regularExpression)
+        formatted = formatted.replacingOccurrences(of: wordBoundary + "Hwy" + wordBoundary, with: "Highway", options: .regularExpression)
         
         return formatted
     }
@@ -148,37 +166,9 @@ class TowerController: ObservableObject {
         
         // Format street names for better speech
         let formattedStreet = formatStreetForSpeech(street)
-        let formattedCrossStreet = formatStreetForSpeech(crossStreet)
         
-        // Determine if we have valid cross street data
-        let hasValidCrossStreet = !formattedCrossStreet.isEmpty && 
-                                  formattedCrossStreet != "unknown intersection" && 
-                                  formattedCrossStreet != "Intersection" && 
-                                  formattedCrossStreet != "Intersections La" &&
-                                  !formattedCrossStreet.contains("and Intersection")
-        
-        // Generate location-specific message based on available data
-        let message: String
-        
-        if hasValidCrossStreet {
-            // We have two valid street names - use more specific messaging
-            let scenariosWithBothStreets = [
-                "\(callSign), we show you approaching \(formattedStreet) and \(formattedCrossStreet). Proceed with caution. Tower out.",
-                "\(callSign), you are currently on \(formattedStreet) near \(formattedCrossStreet). Be advised of heavy traffic ahead. Tower out.",
-                "\(callSign), traffic control shows you at \(formattedStreet) and \(formattedCrossStreet). Hold at next signal. Tower out.",
-                "\(callSign), radar indicates you're at the intersection of \(formattedStreet) and \(formattedCrossStreet). Proceed with caution. Tower out."
-            ]
-            message = scenariosWithBothStreets.randomElement() ?? "\(callSign), we have you at \(formattedStreet) and \(formattedCrossStreet). Continue as planned. Tower out."
-        } else {
-            // We only have the main street - use more generic messaging
-            let scenariosWithOneStreet = [
-                "\(callSign), we show you traveling on \(formattedStreet). Proceed with caution. Tower out.",
-                "\(callSign), you are currently on \(formattedStreet). Be advised of heavy traffic ahead. Tower out.",
-                "\(callSign), traffic control shows you on \(formattedStreet). Hold at next signal. Tower out.",
-                "\(callSign), radar indicates you're traveling on \(formattedStreet). Continue and report at next intersection. Tower out."
-            ]
-            message = scenariosWithOneStreet.randomElement() ?? "\(callSign), we have you on \(formattedStreet). Continue as planned. Tower out."
-        }
+        // Using shorter message format with just the street name
+        let message = "\(callSign) approach end of \(formattedStreet) and hold. Tower out."
         
         addTowerMessage(message)
         speechService.speak(message, withCallSign: callSign)
@@ -216,18 +206,8 @@ class TowerController: ObservableObject {
                 let crossStreet = self.formatStreetForSpeech(self.locationService.currentCrossStreet)
                 
                 // Create a special status update message
-                let hasValidCrossStreet = !crossStreet.isEmpty && 
-                                        crossStreet != "unknown intersection" && 
-                                        crossStreet != "Intersection" && 
-                                        crossStreet != "Intersections La" &&
-                                        !crossStreet.contains("and Intersection")
-                
-                let message: String
-                if hasValidCrossStreet {
-                    message = "\(callSign), status update requested. Your position is confirmed at \(street) and \(crossStreet). Continue on current heading. Tower out."
-                } else {
-                    message = "\(callSign), status update requested. Your position is confirmed on \(street). Continue on current heading. Tower out."
-                }
+                // Simplified status update with just street name
+                let message = "\(callSign) approach end of \(street) and hold. Tower out."
                 
                 // Clear previous tower messages and add the new one
                 DispatchQueue.main.async {
