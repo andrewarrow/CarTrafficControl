@@ -374,6 +374,31 @@ struct MainView: View {
                         .padding(.horizontal)
                         .opacity(listeningAnimation ? 1.0 : 0.7)
                         .animation(.easeInOut(duration: 0.8).repeatForever(autoreverses: true), value: listeningAnimation)
+                    
+                    Spacer()
+                    
+                    // Manual cancel button to exit listening mode
+                    Button(action: {
+                        endListeningMode()
+                        
+                        // Request tower response after a small delay
+                        DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
+                            Task {
+                                await towerController.requestNewTowerMessage()
+                            }
+                        }
+                    }) {
+                        HStack {
+                            Image(systemName: "antenna.radiowaves.left.and.right")
+                            Text("Tower")
+                        }
+                        .padding(.horizontal, 12)
+                        .padding(.vertical, 8)
+                        .background(Color.green)
+                        .foregroundColor(.white)
+                        .cornerRadius(8)
+                    }
+                    .padding(.horizontal)
                 }
                 
                 Spacer()
