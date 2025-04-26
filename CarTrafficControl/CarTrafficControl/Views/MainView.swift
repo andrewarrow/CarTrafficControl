@@ -34,7 +34,7 @@ struct VoiceSettingsView: View {
                                     .cornerRadius(8)
                             }
                             
-                            Text("Go to Settings > Accessibility > Spoken Content > Voices and download enhanced voices")
+                            Text("Go to Settings > Accessibility > Spoken Content > Voices > English > Voice and download enhanced voices")
                                 .font(.caption)
                                 .foregroundColor(.secondary)
                                 .multilineTextAlignment(.center)

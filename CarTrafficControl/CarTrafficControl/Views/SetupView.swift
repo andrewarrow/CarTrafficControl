@@ -2,10 +2,13 @@ import SwiftUI
 
 struct SetupView: View {
     @EnvironmentObject var towerController: TowerController
+    @EnvironmentObject var voiceSettings: VoiceSettings
+    @EnvironmentObject var speechService: SpeechService
     
     // Set Kia as default car make and 2703 as default license plate
     @State private var selectedCarMake: CarMake? = popularCarMakes.first(where: { $0.name == "Kia" })
     @State private var licensePlateDigits = "2703"
+    @State private var showVoiceSettings = false
     
     var onSetupComplete: () -> Void
     
@@ -43,9 +46,30 @@ struct SetupView: View {
                 
                 Section {
                     Button("Start Car Traffic Control") {
+                        // Refresh voices to ensure we have the latest
+                        voiceSettings.refreshAvailableVoices()
+                        
                         if let make = selectedCarMake, !licensePlateDigits.isEmpty {
-                            towerController.setUserVehicle(make: make, licensePlateDigits: licensePlateDigits)
-                            onSetupComplete()
+                            // Check if user has premium/enhanced voices
+                            if voiceSettings.availableVoices.isEmpty {
+                                // No premium voices available, show voice settings instead
+                                showVoiceSettings = true
+                            } else {
+                                // Always auto-select if we have voices but none selected
+                                if voiceSettings.selectedVoiceIdentifier == nil || voiceSettings.getVoiceByIdentifier(voiceSettings.selectedVoiceIdentifier ?? "") == nil {
+                                    // Auto-select the first available voice
+                                    voiceSettings.selectedVoiceIdentifier = voiceSettings.availableVoices[0].identifier
+                                    print("Auto-selected voice: \(voiceSettings.availableVoices[0].name) with ID: \(voiceSettings.availableVoices[0].identifier)")
+                                    
+                                    // Save to UserDefaults directly as an extra precaution
+                                    UserDefaults.standard.set(voiceSettings.availableVoices[0].identifier, forKey: "selectedVoiceIdentifier")
+                                    UserDefaults.standard.synchronize()
+                                }
+                                
+                                // Continue to main app (either using existing or newly selected voice)
+                                towerController.setUserVehicle(make: make, licensePlateDigits: licensePlateDigits)
+                                onSetupComplete()
+                            }
                         }
                     }
                     .disabled(selectedCarMake == nil || licensePlateDigits.isEmpty)
@@ -57,12 +81,18 @@ struct SetupView: View {
         }
         .onAppear {
             requestPermissions()
+            // Make sure we have the latest voice list
+            voiceSettings.refreshAvailableVoices()
+        }
+        .sheet(isPresented: $showVoiceSettings) {
+            VoiceSettingsView()
+                .environmentObject(speechService)
+                .environmentObject(voiceSettings)
         }
     }
     
     private func requestPermissions() {
         // This would be replaced by proper permission handling in a real app
-        let speechService = SpeechService()
         let locationService = LocationService()
         
         speechService.requestSpeechRecognitionPermission()

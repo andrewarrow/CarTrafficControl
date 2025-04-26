@@ -86,6 +86,8 @@ struct ContentView: View {
                 isSetupComplete = true
             })
             .environmentObject(towerController)
+            .environmentObject(voiceSettings)
+            .environmentObject(speechService)
         }
     }
 }
