@@ -327,27 +327,31 @@ struct MainView: View {
                 Spacer()
             }
             
-            // Mode switching buttons
+            // Mode switching buttons (larger without stop button)
             HStack(spacing: 20) {
                 // Listen button
                 Button(action: {
                     if !speechService.isSpeaking && !isListeningMode {
                         startListeningMode()
+                    } else if isListeningMode {
+                        // Clicking Listen while listening will stop listening
+                        endListeningMode()
                     }
                 }) {
                     VStack {
-                        Image(systemName: "mic.fill")
-                            .font(.system(size: 24))
-                        Text("Listen")
+                        Image(systemName: isListeningMode ? "mic.slash.fill" : "mic.fill")
+                            .font(.system(size: 32))
+                        Text(isListeningMode ? "Stop Listening" : "Listen")
+                            .font(.headline)
                     }
                     .frame(maxWidth: .infinity)
-                    .padding(.vertical, 12)
+                    .padding(.vertical, 16)
                     .background(Color.blue.opacity(0.8))
                     .foregroundColor(.white)
                     .cornerRadius(10)
                 }
-                .disabled(speechService.isSpeaking || isListeningMode)
-                .opacity(speechService.isSpeaking || isListeningMode ? 0.5 : 1.0)
+                .disabled(speechService.isSpeaking)
+                .opacity(speechService.isSpeaking ? 0.5 : 1.0)
                 
                 // Tower speak button
                 Button(action: {
@@ -355,45 +359,27 @@ struct MainView: View {
                         Task {
                             await towerController.requestNewTowerMessage()
                         }
-                    }
-                }) {
-                    VStack {
-                        Image(systemName: "antenna.radiowaves.left.and.right")
-                            .font(.system(size: 24))
-                        Text("Tower")
-                    }
-                    .frame(maxWidth: .infinity)
-                    .padding(.vertical, 12)
-                    .background(Color.green.opacity(0.8))
-                    .foregroundColor(.white)
-                    .cornerRadius(10)
-                }
-                .disabled(speechService.isSpeaking || isListeningMode)
-                .opacity(speechService.isSpeaking || isListeningMode ? 0.5 : 1.0)
-                
-                // Stop button (only enabled when either mode is active)
-                Button(action: {
-                    if isListeningMode {
-                        endListeningMode()
                     } else if speechService.isSpeaking {
+                        // Clicking Tower while speaking will stop speaking
                         speechService.stopSpeaking()
                     }
                 }) {
                     VStack {
-                        Image(systemName: "stop.fill")
-                            .font(.system(size: 24))
-                        Text("Stop")
+                        Image(systemName: speechService.isSpeaking ? "stop.fill" : "antenna.radiowaves.left.and.right")
+                            .font(.system(size: 32))
+                        Text(speechService.isSpeaking ? "Stop Tower" : "Tower")
+                            .font(.headline)
                     }
                     .frame(maxWidth: .infinity)
-                    .padding(.vertical, 12)
-                    .background(Color.red.opacity(0.8))
+                    .padding(.vertical, 16)
+                    .background(Color.green.opacity(0.8))
                     .foregroundColor(.white)
                     .cornerRadius(10)
                 }
-                .disabled(!isListeningMode && !speechService.isSpeaking)
-                .opacity(!isListeningMode && !speechService.isSpeaking ? 0.5 : 1.0)
+                .disabled(isListeningMode)
+                .opacity(isListeningMode ? 0.5 : 1.0)
             }
-            .padding(.vertical, 8)
+            .padding(.vertical, 10)
             
             if let last = towerController.userMessages.last {
                 VStack(alignment: .leading) {

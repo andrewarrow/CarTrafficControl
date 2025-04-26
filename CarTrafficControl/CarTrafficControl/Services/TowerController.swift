@@ -124,22 +124,14 @@ class TowerController: ObservableObject {
         // Add to user messages
         addUserMessage(text)
         
-        // Check if communication starts and ends with callsign
+        // No longer checking for proper call sign format
         guard let callSign = userVehicle?.callSign else { return }
         
-        let normalizedText = text.uppercased()
-        let hasProperFormat = normalizedText.hasPrefix(callSign) && normalizedText.hasSuffix(callSign)
+        // Always consider messages valid
+        isCommunicationValid = true
         
-        isCommunicationValid = hasProperFormat
-        
-        // Generate response if valid
-        if hasProperFormat {
-            generateResponse(to: text, callSign: callSign)
-        } else {
-            let correctionMessage = "\(callSign), please begin and end your communication with your call sign."
-            addTowerMessage(correctionMessage)
-            speechService.speak(correctionMessage, withCallSign: callSign)
-        }
+        // Generate response
+        generateResponse(to: text, callSign: callSign)
     }
     
     private func generateResponse(to message: String, callSign: String) {
@@ -235,10 +227,7 @@ class TowerController: ObservableObject {
         // Just add the user message - tower messages will be triggered by manual button
         addUserMessage(userText)
         
-        // Check if communication starts and ends with callsign
-        let normalizedText = userText.uppercased()
-        let hasProperFormat = normalizedText.hasPrefix(callSign) && normalizedText.hasSuffix(callSign)
-        
-        isCommunicationValid = hasProperFormat
+        // No longer checking for callsign format - always mark as valid
+        isCommunicationValid = true
     }
 }
