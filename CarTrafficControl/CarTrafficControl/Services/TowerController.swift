@@ -38,7 +38,11 @@ class TowerController: ObservableObject {
     }
     
     func setUserVehicle(make: CarMake, licensePlateDigits: String) {
-        userVehicle = UserVehicle(make: make, licensePlateDigits: licensePlateDigits)
+        let vehicle = UserVehicle(make: make, licensePlateDigits: licensePlateDigits)
+        userVehicle = vehicle
+        
+        // Save user preferences to UserDefaults
+        vehicle.saveToUserDefaults()
         
         // Get ready for the welcome message with location
         if let callSign = userVehicle?.callSign {

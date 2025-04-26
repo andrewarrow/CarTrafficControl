@@ -5,9 +5,9 @@ struct SetupView: View {
     @EnvironmentObject var voiceSettings: VoiceSettings
     @EnvironmentObject var speechService: SpeechService
     
-    // Set Kia as default car make and 2703 as default license plate
-    @State private var selectedCarMake: CarMake? = popularCarMakes.first(where: { $0.name == "Kia" })
-    @State private var licensePlateDigits = "2703"
+    // Set Kia as default car make and empty license plate
+    @State private var selectedCarMake: CarMake? = nil
+    @State private var licensePlateDigits = ""
     @State private var showVoiceSettings = false
     
     var onSetupComplete: () -> Void
@@ -83,6 +83,9 @@ struct SetupView: View {
             requestPermissions()
             // Make sure we have the latest voice list
             voiceSettings.refreshAvailableVoices()
+            
+            // Load saved preferences
+            loadSavedPreferences()
         }
         .sheet(isPresented: $showVoiceSettings) {
             VoiceSettingsView()
@@ -97,5 +100,20 @@ struct SetupView: View {
         
         speechService.requestSpeechRecognitionPermission()
         locationService.requestLocationPermission()
+    }
+    
+    private func loadSavedPreferences() {
+        // Load saved car make
+        if let savedMakeName = UserDefaults.standard.string(forKey: UserVehicle.makeKey) {
+            selectedCarMake = popularCarMakes.first(where: { $0.name == savedMakeName })
+        } else {
+            // Default to Kia if no saved preference
+            selectedCarMake = popularCarMakes.first(where: { $0.name == "Kia" })
+        }
+        
+        // Load saved license plate
+        if let savedLicensePlate = UserDefaults.standard.string(forKey: UserVehicle.licensePlateKey) {
+            licensePlateDigits = savedLicensePlate
+        }
     }
 }
