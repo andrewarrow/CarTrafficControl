@@ -166,7 +166,6 @@ struct MainView: View {
                                 Color.blue.opacity(listeningAnimation ? 0.6 : 0.3) : 
                                 Color.blue.opacity(0.2))
                             .cornerRadius(10)
-                            .animation(.easeInOut(duration: 1.0).repeatForever(autoreverses: true), value: listeningAnimation)
                     }
                     
                     Spacer()
