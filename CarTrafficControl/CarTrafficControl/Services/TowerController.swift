@@ -64,10 +64,10 @@ class TowerController: ObservableObject {
         
         if street != "unknown street" {
             // Simplified welcome message with just the street name
-            welcomeMessage = "\(callSign) approach end of \(street) and hold. Tower out."
+            welcomeMessage = "\(callSign) approach end of \(street) and hold."
         } else {
             // Fallback if no location data is available
-            welcomeMessage = "\(callSign) maintain position. Tower out."
+            welcomeMessage = "\(callSign) maintain position."
         }
         
         // Send and speak the welcome message
@@ -136,7 +136,7 @@ class TowerController: ObservableObject {
         if hasProperFormat {
             generateResponse(to: text, callSign: callSign)
         } else {
-            let correctionMessage = "\(callSign), please begin and end your communication with your call sign. Tower out."
+            let correctionMessage = "\(callSign), please begin and end your communication with your call sign."
             addTowerMessage(correctionMessage)
             speechService.speak(correctionMessage, withCallSign: callSign)
         }
@@ -145,14 +145,14 @@ class TowerController: ObservableObject {
     private func generateResponse(to message: String, callSign: String) {
         // Very simple random response generator
         let randomResponses = [
-            "\(callSign), roger that. Continue on current route and maintain speed. Tower out.",
-            "\(callSign), copy that. Watch for traffic merging from your right. Tower out.",
-            "\(callSign), message received. Be advised of construction ahead. Reduce speed. Tower out.",
-            "\(callSign), affirmative. You're cleared to proceed through next intersection. Tower out.",
-            "\(callSign), acknowledged. Hold position at next stop sign. Tower out."
+            "\(callSign), roger that. Continue on current route and maintain speed.",
+            "\(callSign), copy that. Watch for traffic merging from your right.",
+            "\(callSign), message received. Be advised of construction ahead. Reduce speed.",
+            "\(callSign), affirmative. You're cleared to proceed through next intersection.",
+            "\(callSign), acknowledged. Hold position at next stop sign."
         ]
         
-        let response = randomResponses.randomElement() ?? "\(callSign), message acknowledged. Tower out."
+        let response = randomResponses.randomElement() ?? "\(callSign), message acknowledged."
         addTowerMessage(response)
         speechService.speak(response, withCallSign: callSign)
     }
@@ -168,7 +168,7 @@ class TowerController: ObservableObject {
         let formattedStreet = formatStreetForSpeech(street)
         
         // Using shorter message format with just the street name
-        let message = "\(callSign) approach end of \(formattedStreet) and hold. Tower out."
+        let message = "\(callSign) approach end of \(formattedStreet) and hold."
         
         addTowerMessage(message)
         speechService.speak(message, withCallSign: callSign)
@@ -207,7 +207,7 @@ class TowerController: ObservableObject {
                 
                 // Create a special status update message
                 // Simplified status update with just street name
-                let message = "\(callSign) approach end of \(street) and hold. Tower out."
+                let message = "\(callSign) approach end of \(street) and hold."
                 
                 // Clear previous tower messages and add the new one
                 DispatchQueue.main.async {

@@ -307,7 +307,7 @@ class SpeechService: NSObject, ObservableObject, SFSpeechRecognizerDelegate, AVS
         isSpeaking = true
         
         // Simple formatting
-        let messageText = "\(callSign), \(text). Over."
+        let messageText = "\(callSign), \(text)."
         print("Speaking: \(messageText)")
         
         // Create utterance with full detailed logging
@@ -501,9 +501,9 @@ class SpeechService: NSObject, ObservableObject, SFSpeechRecognizerDelegate, AVS
             processedText = "\(callSign), \(processedText)"
         }
         
-        // End with "Over" if not already included and not ending with callSign
-        if !processedText.lowercased().contains("over.") && !processedText.hasSuffix(callSign) {
-            processedText = "\(processedText). Over."
+        // Add period if needed and not ending with callSign
+        if !processedText.hasSuffix(".") && !processedText.hasSuffix(callSign) {
+            processedText = "\(processedText)."
         }
         
         return processedText
