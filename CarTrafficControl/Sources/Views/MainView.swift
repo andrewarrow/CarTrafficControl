@@ -5,15 +5,36 @@ struct MainView: View {
     @EnvironmentObject var locationService: LocationService
     @EnvironmentObject var towerController: TowerController
     
+    // Add callback for returning to setup screen
+    var onReturnToSetup: (() -> Void)?
+    
     var body: some View {
         VStack {
-            // Header with call sign
-            if let callSign = towerController.userVehicle?.callSign {
-                Text("Call Sign: \(callSign)")
-                    .font(.title2)
-                    .padding()
-                    .background(Color.blue.opacity(0.2))
-                    .cornerRadius(10)
+            // Header with call sign and back button
+            HStack {
+                if let callSign = towerController.userVehicle?.callSign {
+                    Text("Call Sign: \(callSign)")
+                        .font(.title2)
+                        .padding()
+                        .background(Color.blue.opacity(0.2))
+                        .cornerRadius(10)
+                }
+                
+                Spacer()
+                
+                // Back button to return to setup
+                if onReturnToSetup != nil {
+                    Button(action: {
+                        onReturnToSetup?()
+                    }) {
+                        Image(systemName: "arrow.left")
+                            .font(.title2)
+                            .foregroundColor(.blue)
+                            .padding(10)
+                            .background(Color.blue.opacity(0.1))
+                            .clipShape(Circle())
+                    }
+                }
             }
             
             // Current location display

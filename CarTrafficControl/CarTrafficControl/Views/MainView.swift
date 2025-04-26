@@ -141,6 +141,9 @@ struct MainView: View {
     
     @State private var showingSettings = false
     
+    // Add callback for returning to setup screen
+    var onReturnToSetup: (() -> Void)?
+    
     var body: some View {
         ScrollView {
             VStack {
@@ -155,6 +158,20 @@ struct MainView: View {
                     }
                     
                     Spacer()
+                    
+                    // Back button to return to setup
+                    if onReturnToSetup != nil {
+                        Button(action: {
+                            onReturnToSetup?()
+                        }) {
+                            Image(systemName: "arrow.left")
+                                .font(.title2)
+                                .foregroundColor(.blue)
+                                .padding(10)
+                                .background(Color.blue.opacity(0.1))
+                                .clipShape(Circle())
+                        }
+                    }
                     
                     Button(action: {
                         showingSettings = true

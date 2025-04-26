@@ -17,7 +17,10 @@ struct ContentView: View {
     
     var body: some View {
         if isSetupComplete {
-            MainView()
+            MainView(onReturnToSetup: {
+                // Reset to setup view
+                isSetupComplete = false
+            })
                 .environmentObject(speechService)
                 .environmentObject(locationService)
                 .environmentObject(towerController)
