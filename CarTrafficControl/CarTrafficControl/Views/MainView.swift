@@ -1,6 +1,7 @@
 import SwiftUI
 import AVFoundation
 import UIKit
+import CoreLocation
 
 // Include VoiceSettingsView in the MainView file to avoid scope issues
 struct VoiceSettingsView: View {
@@ -139,6 +140,7 @@ struct MainView: View {
     @EnvironmentObject var locationService: LocationService
     @EnvironmentObject var towerController: TowerController
     @EnvironmentObject var voiceSettings: VoiceSettings
+    @EnvironmentObject var compassService: CompassService
     
     @State private var showingSettings = false
     @State private var isListeningMode = false
@@ -202,8 +204,18 @@ struct MainView: View {
                     }
                 }
                 
-                // Current location display
-                locationInfoView
+                // Current location and compass display
+                HStack(alignment: .top, spacing: 16) {
+                    // Current location display
+                    locationInfoView
+                    
+                    // Compass view
+                    CompassView()
+                        .frame(width: 100, height: 120)
+                        .padding(10)
+                        .background(Color.gray.opacity(0.1))
+                        .cornerRadius(10)
+                }
                 
                 // Tower messages
                 messageListView
@@ -237,9 +249,11 @@ struct MainView: View {
         })
         .onAppear {
             locationService.startLocationUpdates()
+            compassService.startUpdatingHeading()
         }
         .onDisappear {
             locationService.stopLocationUpdates()
+            compassService.stopUpdatingHeading()
             speechService.stopListening()
         }
         .onChange(of: speechService.isSpeaking) { isSpeaking in

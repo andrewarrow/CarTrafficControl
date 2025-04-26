@@ -1,4 +1,5 @@
 import SwiftUI
+import CoreLocation
 
 @main
 struct CarTrafficControlApp: App {
@@ -18,6 +19,7 @@ struct CarTrafficControlApp: App {
 class AppLifecycleManager: ObservableObject {
     // Called by views that need to register for cleanup
     var speechService: SpeechService?
+    var compassService: Any? // Generic type to avoid CompassService direct reference
     
     init() {
         // Set up notification observers for app lifecycle events
@@ -74,6 +76,12 @@ class AppLifecycleManager: ObservableObject {
         // Clean up speech service
         speechService?.cleanup()
         
+        // Stop compass updates if available
+        if let compass = compassService as? NSObject, 
+           compass.responds(to: Selector(("stopUpdatingHeading"))) {
+            _ = compass.perform(Selector(("stopUpdatingHeading")))
+        }
+        
         print("AppLifecycleManager: Cleanup complete")
     }
     
@@ -81,5 +89,11 @@ class AppLifecycleManager: ObservableObject {
     func register(speechService: SpeechService) {
         self.speechService = speechService
         print("AppLifecycleManager: Registered SpeechService for cleanup")
+    }
+    
+    // Register compass service for cleanup
+    func register(compassService service: Any) {
+        self.compassService = service
+        print("AppLifecycleManager: Registered Compass Service for cleanup")
     }
 }
