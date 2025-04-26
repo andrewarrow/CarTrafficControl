@@ -306,8 +306,19 @@ class SpeechService: NSObject, ObservableObject, SFSpeechRecognizerDelegate, AVS
         
         isSpeaking = true
         
-        // Simple formatting
-        let messageText = "\(callSign), \(text)."
+        // Use consistent text processing logic
+        var messageText = text
+        
+        // Make sure it starts with callsign
+        if !messageText.hasPrefix(callSign) {
+            messageText = "\(callSign), \(messageText)"
+        }
+        
+        // Make sure it ends with period
+        if !messageText.hasSuffix(".") {
+            messageText = "\(messageText)."
+        }
+        
         print("Speaking: \(messageText)")
         
         // Create utterance with full detailed logging
@@ -496,13 +507,13 @@ class SpeechService: NSObject, ObservableObject, SFSpeechRecognizerDelegate, AVS
         // Format text in ATC style
         var processedText = text
         
-        // Structure with call sign (if not already included)
+        // Structure with call sign at beginning only (if not already included)
         if !processedText.hasPrefix(callSign) {
             processedText = "\(callSign), \(processedText)"
         }
         
-        // Add period if needed and not ending with callSign
-        if !processedText.hasSuffix(".") && !processedText.hasSuffix(callSign) {
+        // Add period if needed - never add callSign at the end
+        if !processedText.hasSuffix(".") {
             processedText = "\(processedText)."
         }
         
@@ -577,18 +588,22 @@ class SpeechService: NSObject, ObservableObject, SFSpeechRecognizerDelegate, AVS
     }
     
     private func playRadioClosingSound() {
+        print("🔊 DEBUG: Playing radio closing sound - speech is complete")
+        
         // Play the characteristic "click" sound of radio transmission ending
         if let clickPlayer = clickOutPlayer, clickPlayer.isPlaying == false {
             clickPlayer.currentTime = 0
             clickPlayer.play()
             
-            // Set speaking to false after the click sound finishes
-            DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) { [weak self] in
+            // Set speaking to false after the click sound finishes with longer delay
+            DispatchQueue.main.asyncAfter(deadline: .now() + 1.0) { [weak self] in
+                print("🔊 DEBUG: Marking speech as officially ended")
                 self?.isSpeaking = false
             }
         } else {
-            // Add a delay to simulate the click sound
-            DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) { [weak self] in
+            // Add a delay to simulate the click sound with longer delay
+            DispatchQueue.main.asyncAfter(deadline: .now() + 1.0) { [weak self] in
+                print("🔊 DEBUG: Marking speech as officially ended (no click)")
                 self?.isSpeaking = false
             }
         }

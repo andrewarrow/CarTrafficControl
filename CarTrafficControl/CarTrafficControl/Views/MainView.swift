@@ -153,7 +153,7 @@ struct MainView: View {
     // Automated conversation loop
     @State private var autoModeEnabled = true
     @State private var speechEndedTime: Date? = nil
-    private let speechEndBuffer: TimeInterval = 0.8 // Buffer time after speech detection ends
+    private let speechEndBuffer: TimeInterval = 3.0 // Significantly increased buffer time to ensure full audio completion
     
     // Add callback for returning to setup screen
     var onReturnToSetup: (() -> Void)?
@@ -255,13 +255,22 @@ struct MainView: View {
                 
                 // Automated loop handling - wait for buffer time to avoid cutting off audio
                 if autoModeEnabled && !isListeningMode {
+                    print("Speech ended at \(Date()). Adding buffer of \(speechEndBuffer) seconds before starting listen mode")
+                    
                     // Use a timer with the buffer to make sure all audio is completely finished
                     // This is critical to prevent cutting off the end of tower messages
                     let bufferTimer = Timer.scheduledTimer(withTimeInterval: speechEndBuffer, repeats: false) { _ in
                         // Only start listening if we're still not listening and not speaking
                         if !isListeningMode && !speechService.isSpeaking {
-                            print("Auto-mode: Starting listening after tower finished speaking")
-                            startListeningMode()
+                            print("Auto-mode: Starting listening after tower finished speaking. Time elapsed since speech ended: \(Date().timeIntervalSince(self.speechEndedTime ?? Date()))")
+                            
+                            // Add a very small delay before starting listening mode
+                            // to ensure any pending UI updates are processed
+                            DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
+                                self.startListeningMode()
+                            }
+                        } else {
+                            print("Auto-mode: Not starting listening because: isListeningMode=\(self.isListeningMode), isSpeaking=\(self.speechService.isSpeaking)")
                         }
                     }
                     
