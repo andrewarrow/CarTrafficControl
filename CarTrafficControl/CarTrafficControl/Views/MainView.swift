@@ -150,6 +150,11 @@ struct MainView: View {
     @State private var silenceTimer: Timer? = nil
     private let silenceDuration: TimeInterval = 1.5 // Seconds of silence before ending listening mode
     
+    // Automated conversation loop
+    @State private var autoModeEnabled = true
+    @State private var speechEndedTime: Date? = nil
+    private let speechEndBuffer: TimeInterval = 0.8 // Buffer time after speech detection ends
+    
     // Add callback for returning to setup screen
     var onReturnToSetup: (() -> Void)?
     
@@ -237,10 +242,32 @@ struct MainView: View {
             speechService.stopListening()
         }
         .onChange(of: speechService.isSpeaking) { isSpeaking in
-            // When tower stops speaking, mark that welcome message has played
-            if !isSpeaking && !hasPlayedWelcomeMessage && towerController.towerMessages.count == 1 {
-                hasPlayedWelcomeMessage = true
-                // No longer automatically start listening mode
+            if !isSpeaking {
+                // Tower stopped speaking
+                
+                // First time welcome message handling
+                if !hasPlayedWelcomeMessage && towerController.towerMessages.count == 1 {
+                    hasPlayedWelcomeMessage = true
+                }
+                
+                // Record the time when speech ended for automated timing
+                speechEndedTime = Date()
+                
+                // Automated loop handling - wait for buffer time to avoid cutting off audio
+                if autoModeEnabled && !isListeningMode {
+                    // Use a timer with the buffer to make sure all audio is completely finished
+                    // This is critical to prevent cutting off the end of tower messages
+                    let bufferTimer = Timer.scheduledTimer(withTimeInterval: speechEndBuffer, repeats: false) { _ in
+                        // Only start listening if we're still not listening and not speaking
+                        if !isListeningMode && !speechService.isSpeaking {
+                            print("Auto-mode: Starting listening after tower finished speaking")
+                            startListeningMode()
+                        }
+                    }
+                    
+                    // Keep a strong reference to the timer
+                    RunLoop.current.add(bufferTimer, forMode: .common)
+                }
             }
         }
         .onChange(of: speechService.recognizedText) { text in
@@ -255,8 +282,23 @@ struct MainView: View {
                         if !text.isEmpty {
                             endListeningMode()
                             
-                            // Process the user's message but don't auto-request tower response
+                            // Process the user's message
                             towerController.processListeningLoop(userText: text, callSign: callSign)
+                            
+                            // If auto mode enabled, request tower response after a small delay
+                            // to allow for any processing to complete
+                            if autoModeEnabled {
+                                // Give a brief pause to ensure smooth transition
+                                DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
+                                    // Only proceed if we're not already speaking or listening
+                                    if !speechService.isSpeaking && !isListeningMode {
+                                        print("Auto-mode: Requesting tower message after detecting user finished speaking")
+                                        Task {
+                                            await towerController.requestNewTowerMessage()
+                                        }
+                                    }
+                                }
+                            }
                         }
                     }
                 }
@@ -327,9 +369,18 @@ struct MainView: View {
                 Spacer()
             }
             
-            // Mode switching buttons (larger without stop button)
+            // Status indicator for the automatic conversation loop
+            HStack {
+                Text("Conversation Mode: \(autoModeEnabled ? "Automatic" : "Manual")")
+                    .font(.headline)
+                    .foregroundColor(.blue)
+                    .padding(.vertical, 10)
+            }
+            
+            // Buttons are hidden (opacity 0) but functionality remains in case we need it
+            // This keeps all of our code intact while making the UI simpler
             HStack(spacing: 20) {
-                // Listen button
+                // Listen button - hidden but functional
                 Button(action: {
                     if !speechService.isSpeaking && !isListeningMode {
                         startListeningMode()
@@ -351,9 +402,9 @@ struct MainView: View {
                     .cornerRadius(10)
                 }
                 .disabled(speechService.isSpeaking)
-                .opacity(speechService.isSpeaking ? 0.5 : 1.0)
+                .opacity(0) // Hidden but still functional
                 
-                // Tower speak button
+                // Tower speak button - hidden but functional
                 Button(action: {
                     if !speechService.isSpeaking && !isListeningMode {
                         Task {
@@ -377,9 +428,9 @@ struct MainView: View {
                     .cornerRadius(10)
                 }
                 .disabled(isListeningMode)
-                .opacity(isListeningMode ? 0.5 : 1.0)
+                .opacity(0) // Hidden but still functional
             }
-            .padding(.vertical, 10)
+            .frame(height: 0) // Collapse the height since the buttons are invisible
             
             if let last = towerController.userMessages.last {
                 VStack(alignment: .leading) {
