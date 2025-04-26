@@ -233,15 +233,10 @@ class TowerController: ObservableObject {
         // Add user message
         addUserMessage(userText)
         
-        // Check for call sign in the message (already done in MainView)
-        let hasCallSign = userText.uppercased().contains(callSign)
-        
-        if hasCallSign {
-            // Prepare response after a short delay
-            DispatchQueue.main.asyncAfter(deadline: .now() + 1.0) {
-                Task {
-                    await self.requestNewTowerMessage()
-                }
+        // Prepare response after a short delay
+        DispatchQueue.main.asyncAfter(deadline: .now() + 1.0) {
+            Task {
+                await self.requestNewTowerMessage()
             }
         }
     }

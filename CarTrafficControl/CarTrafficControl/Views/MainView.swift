@@ -146,6 +146,10 @@ struct MainView: View {
     // For visual animation of listening mode
     @State private var listeningAnimation = false
     
+    // For silence detection
+    @State private var silenceTimer: Timer? = nil
+    private let silenceDuration: TimeInterval = 1.5 // Seconds of silence before ending listening mode
+    
     // Add callback for returning to setup screen
     var onReturnToSetup: (() -> Void)?
     
@@ -159,7 +163,7 @@ struct MainView: View {
                             .font(.title2)
                             .padding()
                             .background(isListeningMode ? 
-                                Color.red.opacity(listeningAnimation ? 0.4 : 0.2) : 
+                                Color.blue.opacity(listeningAnimation ? 0.6 : 0.3) : 
                                 Color.blue.opacity(0.2))
                             .cornerRadius(10)
                             .animation(.easeInOut(duration: 1.0).repeatForever(autoreverses: true), value: listeningAnimation)
@@ -246,15 +250,21 @@ struct MainView: View {
             }
         }
         .onChange(of: speechService.recognizedText) { text in
-            // Check if user has said their call sign to end listening mode
-            if isListeningMode, let callSign = towerController.userVehicle?.callSign, !text.isEmpty {
-                let normalizedText = text.uppercased()
-                if normalizedText.contains(callSign) {
-                    // User said their call sign, end listening mode
-                    endListeningMode()
-                    
-                    // Process the user's message and continue the communication loop
-                    towerController.processListeningLoop(userText: text, callSign: callSign)
+            if isListeningMode, let callSign = towerController.userVehicle?.callSign {
+                // Reset the silence timer whenever we get new text
+                silenceTimer?.invalidate()
+                
+                if !text.isEmpty {
+                    // Start a new silence timer to detect when the user stops speaking
+                    silenceTimer = Timer.scheduledTimer(withTimeInterval: silenceDuration, repeats: false) { _ in
+                        // User has been silent for the duration
+                        if !text.isEmpty {
+                            endListeningMode()
+                            
+                            // Process the user's message and continue the communication loop
+                            towerController.processListeningLoop(userText: text, callSign: callSign)
+                        }
+                    }
                 }
             }
         }
@@ -316,7 +326,7 @@ struct MainView: View {
                         .padding(.horizontal)
                 } else if isListeningMode {
                     Text("Listening Mode Active")
-                        .foregroundColor(.red)
+                        .foregroundColor(.blue)
                         .padding(.horizontal)
                         .opacity(listeningAnimation ? 1.0 : 0.7)
                         .animation(.easeInOut(duration: 0.8).repeatForever(autoreverses: true), value: listeningAnimation)
@@ -343,7 +353,7 @@ struct MainView: View {
         }
         .padding()
         .background(isListeningMode ? 
-            (colorScheme == .dark ? Color.red.opacity(0.15) : Color.red.opacity(0.05)) : 
+            (colorScheme == .dark ? Color.blue.opacity(0.25) : Color.blue.opacity(0.1)) : 
             (colorScheme == .dark ? Color.black : Color.white))
         .cornerRadius(10)
         .shadow(radius: 2)
@@ -354,27 +364,27 @@ struct MainView: View {
         VStack(spacing: 20) {
             Image(systemName: "mic.fill")
                 .font(.system(size: 60))
-                .foregroundColor(.red)
+                .foregroundColor(.blue)
                 .padding()
                 .background(
                     Circle()
-                        .fill(Color.red.opacity(listeningAnimation ? 0.3 : 0.1))
+                        .fill(Color.blue.opacity(listeningAnimation ? 0.3 : 0.1))
                         .frame(width: 120, height: 120)
                 )
                 .scaleEffect(listeningAnimation ? 1.1 : 1.0)
                 
             Text("LISTENING MODE")
                 .font(.headline)
-                .foregroundColor(.red)
+                .foregroundColor(.blue)
                 .padding(.bottom, 5)
                 
-            Text("Say your call sign to end listening mode")
+            Text("Speak clearly when ready")
                 .font(.subheadline)
                 .foregroundColor(.secondary)
                 .multilineTextAlignment(.center)
                 
             if let callSign = towerController.userVehicle?.callSign {
-                Text("Your call sign: \(callSign)")
+                Text("Tower will respond after you finish speaking")
                     .font(.callout)
                     .foregroundColor(.primary)
                     .padding(.top, 5)
@@ -402,6 +412,10 @@ struct MainView: View {
     private func endListeningMode() {
         // Stop the speech recognition
         speechService.stopListening()
+        
+        // Stop any pending silence timer
+        silenceTimer?.invalidate()
+        silenceTimer = nil
         
         // Set the state
         isListeningMode = false
