@@ -5,11 +5,11 @@ struct SetupView: View {
     @EnvironmentObject var voiceSettings: VoiceSettings
     @EnvironmentObject var speechService: SpeechService
     
-    // Set Kia as default car make and empty license plate
+    // Set Honda as default car make
     @State private var selectedCarMake: CarMake? = nil
-    @State private var licensePlateDigits = ""
+    @State private var licensePlateDigits = "123"
     @State private var showVoiceSettings = false
-    
+
     var onSetupComplete: () -> Void
     
     var body: some View {
@@ -17,7 +17,7 @@ struct SetupView: View {
             Form {
                 Section(header: Text("Vehicle Information")) {
                     Picker("Car Make", selection: $selectedCarMake) {
-                        Text("Select a car make").tag(nil as CarMake?)
+                        Text("Honda").tag(popularCarMakes.first as CarMake?)
                         ForEach(popularCarMakes.dropFirst()) { make in
                             Text(make.name).tag(make as CarMake?)
                         }
@@ -108,8 +108,8 @@ struct SetupView: View {
         if let savedMakeName = UserDefaults.standard.string(forKey: UserVehicle.makeKey) {
             selectedCarMake = popularCarMakes.first(where: { $0.name == savedMakeName })
         } else {
-            // No default selection
-            selectedCarMake = nil
+            // Default to Honda
+            selectedCarMake = popularCarMakes.first(where: { $0.name == "Honda" })
         }
         
         // Load saved license plate
